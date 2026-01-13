@@ -27,7 +27,12 @@ export default function Notes() {
     //     desc: "useState & useEffect",
     //     done: false,
     //     progress: [
-    //       ...
+    //       id: Date.now().toString(),
+    //       act,
+    //       tglAct,
+    //       status: "Plan", "on Process", "Done",
+    //       feedback,
+    //       tglFeedback,
     //     ] // ⬅️ WAJIB ADA
     // }
 
@@ -62,22 +67,21 @@ export default function Notes() {
         );
     }
 
-    // PROGRESS TOGGLES HANDLE ================================================
+    // ADD NOTES TOGGLES HANDLE ================================================
+    const [tbhOpen, setTbhOpen] = useState(false);
+    function toggleTbh() {
+        setTbhOpen(!tbhOpen);
+    }
+    // END ADD NOTES TOGGLES HANDLE ============================================
+
+    // PROGRESS TOGGLES HANDLE =================================================
     const [openNoteId, setOpenNoteId] = useState(null);
     function togglePrgs(noteId) {
         setOpenNoteId((prev) => 
             prev === noteId ? null : noteId
         );
     }
-    // END PROGRESSTOGGLES HANDLE ================================================
-
-    // ADD NOTES TOGGLES HANDLE ================================================
-    const [tbhOpen, setTbhOpen] = useState(false);
-    function toggleTbh() {
-        setTbhOpen(!tbhOpen);
-    }
-    // END ADD NOTES TOGGLES HANDLE ================================================
-
+    // END PROGRESSTOGGLES HANDLE ==============================================
 
     return (
         <div className="max-w-3xl mx-auto p-4">

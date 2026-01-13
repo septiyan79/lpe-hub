@@ -9,7 +9,7 @@ export default function NotesProgress({ note, onAddProgress }) {
         e.preventDefault(); //fungsi: mencegah perilaku default (bawaan) dari sebuah event
 
         if (!act || !tglAct) return;
-
+        
         onAddProgress(note.id, {
             id: Date.now().toString(),
             act,
@@ -70,7 +70,7 @@ export default function NotesProgress({ note, onAddProgress }) {
             {/* Form Tambah Progress Baru */}
             <div className="bg-white p-4 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 border-l-4 border-cyan-800">
 
-                <form onSubmit={(e) => handleSubmit(e, note.id)}>
+                <form onSubmit={handleSubmit}>
                     <div className="flex justify-between items-start space-x-4">
                         {/* Action Input */}
                         <div className="flex-1">
