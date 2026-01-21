@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
-import NotesItem from "./newNotesPart/NotesItem";
+import NotesItem from "../components/newNotes/NotesItem";
 import { Plus, Zap } from 'lucide-react';
-import { useAutoResizeTextarea } from "../hooks/useAutoResizeTextarea";
+import { useAutoResizeTextarea } from "../../hooks/useAutoResizeTextarea";
 
 const NewNotes = () => {
   //TOGGLE FORM TAMBAH =================================================================

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { FaChevronDown, FaChevronUp } from 'react-icons/fa';
-import NotesItem from "./notesPart/NotesItem";
+import NotesItem from "../components/notesPart/NotesItem";
 
 export default function Notes() {
     const [notes, setNotes] = useState([]);

@@ -1,40 +1,27 @@
 // import './App.css';
-import { BrowserRouter as Router, Route, Routes, Link } from 'react-router-dom';
-import ToDoList from './ToDoList_Tailwind';
-import Home from './pages/Home';
-import Karyawan from './pages/Karyawan';
-import Notes from './pages/Notes';
-import NewNotes from './pages/NewNotes';
+import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import GenLayout from './general/layouts/genLayout';
+
+import ToDoList from './general/pages/ToDoList_Tailwind';
+import Home from './general/pages/Home';
+import Karyawan from './general/pages/Karyawan';
+import Notes from './general/pages/Notes';
+import NewNotes from './general/pages/NewNotes';
+import GenLayout from './general/layouts/genLayout';
 
 function App() {
   return (
-    <Router>
-      <div className="min-h-screen bg-cyan-900">
-        <nav className="bg-cyan-950 p-4 w-full">
-          <div className="text-cyan-100 flex justify-between items-center">
-            <Link to="/" className="text-cyan-100 text-xl font-semibold">
-              My Website
-            </Link>
-
-            <div className="space-x-6 hidden md:flex">
-              <Link to="/" className="hover:text-gray-300">Home</Link>
-              <Link to="/notes" className="hover:text-gray-300">Activity Notes</Link>
-              <Link to="/newNotes" className="hover:text-gray-300">NEW! Activity Notes</Link>
-              <Link to="/todolist" className="hover:text-gray-300">To Do List</Link>
-              <Link to="/karyawan" className="hover:text-gray-300">Karyawan</Link>
-            </div>
-          </div>
-        </nav>
-
-        <Routes>
+    <BrowserRouter>
+      <Routes>
+        <Route element={<GenLayout />}>
           <Route path='/' element={<Home />} />
           <Route path='/todolist' element={<ToDoList />} />
           <Route path='/karyawan' element={<Karyawan />} />
           <Route path='/notes' element={<Notes />} />
           <Route path='/newNotes' element={<NewNotes />} />
-        </Routes>
-      </div>
-    </Router>
+        </Route>
+      </Routes>
+    </BrowserRouter >
   );
 }
 

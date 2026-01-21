@@ -90,7 +90,7 @@ export default function ToDoList() {
 
     return (
         <div className="max-w-3xl mx-auto p-4">
-            <h1 className="text-2xl text-amber-50 font-semibold mb-4">To‑Do List</h1>
+            <h1 className="text-2xl text-amber-900 font-semibold mb-4">To‑Do List</h1>
 
             {/* input */}
             <div className="flex gap-2 mb-4">
@@ -109,7 +109,7 @@ export default function ToDoList() {
                             cancelEdit();
                         }
                     }}
-                    className="flex-1 border rounded-md px-3 py-2 focus:outline-none focus:ring-2 text-white focus:ring-indigo-300 border-yellow-200"
+                    className="flex-1 border rounded-md px-3 py-2 focus:outline-none focus:ring-2 text-amber-900 focus:ring-amber-200 border-amber-700"
                     placeholder="Add new Todo"
                 />
 
@@ -118,13 +118,13 @@ export default function ToDoList() {
                         <>
                             <button
                                 onClick={saveEdit}
-                                className="px-3 py-2 rounded-md bg-yellow-600 text-white hover:bg-yellow-700"
+                                className="px-3 py-2 rounded-md bg-amber-600 text-amber-100 hover:bg-amber-500"
                             > Save </button>
                         </>
                     ) : (
                         <button
                             onClick={addTodo}
-                            className="px-3 py-2 rounded-md bg-yellow-600 text-white hover:bg-yellow-700"
+                            className="px-3 py-2 rounded-md bg-amber-600 text-amber-100 hover:bg-amber-500"
                         > Add </button>
                     )}
                 </div>
@@ -135,19 +135,19 @@ export default function ToDoList() {
                 <div className="flex gap-2">
                     <button
                         onClick={() => setFilter("all")}
-                        className={`px-3 py-1 rounded-full border text-brown-900 ${filter === "all" ? "bg-gray-100 text-black" : "bg-gray-700 text-white"}`}
+                        className={`px-3 py-1 rounded-full border text-brown-900 ${filter === "all" ? "bg-amber-100 text-amber-900" : "bg-amber-900 text-amber-100"}`}
                     >
                         All
                     </button>
                     <button
                         onClick={() => setFilter("active")}
-                        className={`px-3 py-1 rounded-full border ${filter === "active" ? "bg-gray-100 text-black" : "bg-gray-700 text-white"}`}
+                        className={`px-3 py-1 rounded-full border ${filter === "active" ? "bg-amber-100 text-amber-900" : "bg-amber-900 text-amber-100"}`}
                     >
                         Active
                     </button>
                     <button
                         onClick={() => setFilter("completed")}
-                        className={`px-3 py-1 rounded-full border ${filter === "completed" ? "bg-gray-100 text-black" : "bg-gray-700 text-white"}`}
+                        className={`px-3 py-1 rounded-full border ${filter === "completed" ? "bg-amber-100 text-amber-900" : "bg-amber-900 text-amber-100"}`}
                     >
                         Completed
                     </button>
@@ -164,12 +164,12 @@ export default function ToDoList() {
                         className="
                             flex items-center justify-between 
                             bg-grey shadow-sm 
-                            border border-yellow-100 
+                            border border-amber-300 
                             rounded-md p-3 
-                            text-white
-                            hover:border-yellow-200
-                            hover:text-yellow-200"
-                    >
+                            text-amber-800
+                            hover:border-amber-600
+                            hover:text-amber-900">
+
                         <div className="flex items-center gap-3">
                             <input
                                 type="checkbox"
@@ -179,7 +179,7 @@ export default function ToDoList() {
                                 checked={todo.done}
                             />
                             <div className={`text-sm ${todo.done ? "line-through text-gray-400" : ""}`}>
-                                {todo.id}
+                                {todo.text}
                             </div>
                         </div>
 

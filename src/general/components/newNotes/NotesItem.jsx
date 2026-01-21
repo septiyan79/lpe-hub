@@ -1,7 +1,7 @@
 import NotesProgress from './NotesProgress';
 import { LayoutList } from 'lucide-react';
 import { useState } from 'react';
-import { useAutoResizeTextarea } from "../../hooks/useAutoResizeTextarea";
+import { useAutoResizeTextarea } from "../../../hooks/useAutoResizeTextarea";
 
 
 export default function NotesItem({ note, isOpen, togglePrgs, addProgress, addFeedback, updateNoteField, updateProgressField }) {
