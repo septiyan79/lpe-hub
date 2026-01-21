@@ -7,7 +7,6 @@ import Home from './general/pages/Home';
 import Karyawan from './general/pages/Karyawan';
 import Notes from './general/pages/Notes';
 import NewNotes from './general/pages/NewNotes';
-import GenLayout from './general/layouts/genLayout';
 
 function App() {
   return (

@@ -173,7 +173,7 @@ const NewNotes = () => {
   const textareaRef = useAutoResizeTextarea(inputDesc);
 
   return (
-    <div className="min-h-screen bg-[#F0F2F5] p-4 md:p-10 font-sans text-slate-800">
+    <div className="min-h-screen bg-orange-50 p-4 md:p-10 font-sans text-slate-800">
       <div className="max-w-6xl mx-auto">
 
         {/* Top Minimalist Form */}
