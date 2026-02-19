@@ -1,10 +1,21 @@
 import NotesProgress from './NotesProgress';
-import { LayoutList } from 'lucide-react';
+import { LayoutList, Trash } from 'lucide-react';
 import { useState } from 'react';
 import { useAutoResizeTextarea } from "../../../hooks/useAutoResizeTextarea";
 
 
-export default function NotesItem({ note, isOpen, togglePrgs, addProgress, addFeedback, updateNoteField, updateProgressField }) {
+export default function NotesItem({
+    note,
+    isOpen,
+    togglePrgs,
+    addProgress,
+    addFeedback,
+    updateNoteField,
+    updateProgressField,
+    deleteFeedback,
+    deleteProgress,
+    deleteNote,
+}) {
     const [editingNote, setEditingNote] = useState(null); // null | 'title' | 'desc' | 'done'
     const [draftNote, setDraftNote] = useState('');
 
@@ -48,6 +59,7 @@ export default function NotesItem({ note, isOpen, togglePrgs, addProgress, addFe
                                     {/* Status Text */}
                                     {note.done ? "Done" : "On Going"}
                                 </button>
+
                             </div>
                         </span>
                     </div>
@@ -71,12 +83,17 @@ export default function NotesItem({ note, isOpen, togglePrgs, addProgress, addFe
                     />
 
                 ) : (
-                    <h2 className="text-2xl font-bold leading-tight mb-3 text-slate-900 cursor-pointer hover:text-orange-500 transition"
-                        onClick={() => startEditNote('title', note.title)}
-                        title="Click to edit title"
-                    >
-                        {note.title}
-                    </h2>
+                    <>
+                        <h2 className="text-2xl font-bold leading-tight mb-3 text-slate-900 cursor-pointer hover:text-orange-500 transition"
+                            onClick={() => startEditNote('title', note.title)}
+                            title="Click to edit title"
+                        >
+                            {note.title}
+
+                        </h2>
+
+                    </>
+
                 )}
                 {editingNote === 'desc' ? (
                     <textarea
@@ -97,7 +114,15 @@ export default function NotesItem({ note, isOpen, togglePrgs, addProgress, addFe
                         {note.desc}
                     </p>
                 )}
+
+                <button
+                    className="text-red-500 text-xs font-bold hover:underline mt-3"
+                    onClick={() => deleteNote(note.id)}
+                >
+                    <Trash size={18} />
+                </button>
             </div>
+
 
             {/* Right Side*/}
             <div className={`flex-1 bg-slate-50/50 p-6 lg:p-8 transition-all duration-300 ease-in-out ${isOpen ? ' max-h-auto lg:max-h-[1000px] opacity-100 display-block' : 'max-h-0 opacity-0 overflow-hidden display-none'}`}>
@@ -124,6 +149,8 @@ export default function NotesItem({ note, isOpen, togglePrgs, addProgress, addFe
                             addProgress={addProgress}
                             addFeedback={addFeedback}
                             updateProgressField={updateProgressField}
+                            deleteFeedback={deleteFeedback}
+                            deleteProgress={deleteProgress}
                         />
                     </div>
                 </div>
