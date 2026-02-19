@@ -2,13 +2,12 @@ import {
     Plus,
     CheckCircle,
     MessageSquare,
-    CalendarClock,
-    Footprints,
+    Trash,
 } from 'lucide-react';
 
 import { useState } from 'react';
 
-export default function NotesProgress({ note, addProgress, addFeedback, updateProgressField }) {
+export default function NotesProgress({ note, addProgress, addFeedback, updateProgressField, deleteFeedback, deleteProgress }) {
     const [inputAct, setInputAct] = useState("");
     const [inputTglAct, setInputTglAct] = useState("");
 
@@ -99,16 +98,25 @@ export default function NotesProgress({ note, addProgress, addFeedback, updatePr
                                     <input
                                         className='font-bold text-slate-800 text-sm leading-none outline-none border-b border-orange-400 w-[90%]'
                                         value={draftProgress[prgs.id] || ""}
-                                        onChange={(ev) => setDraftProgress(prev => ({...prev, [prgs.id]: ev.target.value}))}
+                                        onChange={(ev) => setDraftProgress(prev => ({ ...prev, [prgs.id]: ev.target.value }))}
                                         onBlur={() => saveEditProgress(prgs.id)}
                                         autoFocus
                                     />
                                 )
                                 : (
-                                    <h4 className="font-bold text-slate-800 text-sm leading-none"
-                                        onClick={() => startEditProgress(prgs.id, 'act', prgs.act)}>
-                                        {prgs.act}
-                                    </h4>
+                                    <>
+                                        <h4 className="font-bold text-slate-800 text-sm leading-none"
+                                            onClick={() => startEditProgress(prgs.id, 'act', prgs.act)}>
+                                            {prgs.act}
+                                        </h4>
+                                        <button
+                                            className="text-red-500 text-xs font-bold ml-1 hover:underline"
+                                            onClick={() => deleteProgress(note.id, prgs.id)}
+                                        >
+                                            <Trash size={14} />
+                                        </button>
+
+                                    </>
                                 )
                             }
                         </div>
@@ -119,7 +127,7 @@ export default function NotesProgress({ note, addProgress, addFeedback, updatePr
                                     type='date'
                                     autoFocus
                                     value={draftProgress[prgs.id] || ""}
-                                    onChange={(ev) => setDraftProgress(prev => ({...prev, [prgs.id]: ev.target.value}))}
+                                    onChange={(ev) => setDraftProgress(prev => ({ ...prev, [prgs.id]: ev.target.value }))}
                                     onBlur={() => saveEditProgress(prgs.id)}
                                     className="text-[10px] text-slate-600 font-medium italic outline-none"
                                 />
@@ -143,7 +151,7 @@ export default function NotesProgress({ note, addProgress, addFeedback, updatePr
                                 className="absolute top-2 right-0.5 transform -translate-y-1/2 text-orange-200 group-hover:text-orange-500"
                             />
                             <span className="font-semibold text-slate-700 block mb-1">
-                                Feedback<b> </b>
+                                Feedback
                                 {editingProgress?.progressId === prgs.id && editingProgress.field === 'tglFeedback'
                                     ? (
                                         <small className="text-orange-500">
@@ -151,19 +159,27 @@ export default function NotesProgress({ note, addProgress, addFeedback, updatePr
                                                 type='date'
                                                 autoFocus
                                                 value={draftProgress[prgs.id] || ""}
-                                                onChange={(ev) => setDraftProgress(prev => ({...prev, [prgs.id]: ev.target.value}))}
+                                                onChange={(ev) => setDraftProgress(prev => ({ ...prev, [prgs.id]: ev.target.value }))}
                                                 onBlur={() => saveEditProgress(prgs.id)}
                                                 className="outline-none"
                                             />
                                         </small>
                                     ) : (
-                                        <small className="text-orange-500 cursor-pointer" onClick={() => startEditProgress(prgs.id, 'tglFeedback', prgs.tglFeedback)}>
-                                            {new Date(prgs.tglFeedback).toLocaleDateString("en-GB", {
-                                                day: "2-digit",
-                                                month: "short",
-                                                year: "numeric",
-                                            })}
-                                        </small>
+                                        <>
+                                            <small className="ml-1 text-orange-500 cursor-pointer" onClick={() => startEditProgress(prgs.id, 'tglFeedback', prgs.tglFeedback)}>
+                                                {new Date(prgs.tglFeedback).toLocaleDateString("en-GB", {
+                                                    day: "2-digit",
+                                                    month: "short",
+                                                    year: "numeric",
+                                                })}
+                                            </small>
+                                            <button
+                                                className="text-red-500 text-[10px] font-bold ml-2 hover:underline bg-red-200 rounded-2xl p-1"
+                                                onClick={() => deleteFeedback(note.id, prgs.id)}
+                                            >
+                                                <Trash size={12} />
+                                            </button>
+                                        </>
                                     )}
 
                             </span>
@@ -173,7 +189,7 @@ export default function NotesProgress({ note, addProgress, addFeedback, updatePr
                                         className='w-full md:w-full flex items-center justify-center focus:outline-none group-hover:text-orange-500'
                                         value={draftProgress[prgs.id] || ""}
                                         onBlur={() => saveEditProgress(prgs.id)}
-                                        onChange={(ev) => setDraftProgress(prev => ({...prev, [prgs.id]: ev.target.value}))}
+                                        onChange={(ev) => setDraftProgress(prev => ({ ...prev, [prgs.id]: ev.target.value }))}
                                         spellCheck={false}
                                         rows={1}
                                     />

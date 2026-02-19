@@ -172,6 +172,52 @@ const NewNotes = () => {
   // PAKAI HOOK
   const textareaRef = useAutoResizeTextarea(inputDesc);
 
+
+  // DELETE FUNCTION ==============================================================================
+  // ================================================================================================
+
+  // DELETE FEEDBACK HANDLER =====================================================
+  function deleteFeedback(noteId, progressId) {
+    if (!window.confirm("Are you sure you want to delete this feedback?")) return;
+
+    setNotes(prev =>
+      prev.map(note =>
+        note.id === noteId
+          ? {
+            ...note,
+            progress: note.progress.map(prgs =>
+              prgs.id === progressId
+                ? { ...prgs, feedback: "", tglFeedback: "" }
+                : prgs
+            )
+          }
+          : note
+      )
+    );
+  }
+
+  // DELETE PROGRESS HANDLER
+  function deleteProgress(noteId, progressId) {
+    if (!window.confirm("Are you sure you want to delete this progress? Its feedback will also be deleted.")) return;
+
+    setNotes(prev =>
+      prev.map(note =>
+        note.id === noteId
+          ? { ...note, progress: note.progress.filter(prgs => prgs.id !== progressId) }
+          : note
+      )
+    );
+  }
+
+  // DELETE NOTE HANDLER
+  function deleteNote(noteId) {
+    if (!window.confirm("Are you sure you want to delete this note? All its progress & feedback will be deleted.")) return;
+
+    setNotes(prev => prev.filter(note => note.id !== noteId));
+  }
+
+
+
   return (
     <div className="min-h-screen bg-orange-50 p-4 md:p-10 font-sans text-slate-800">
       <div className="max-w-6xl mx-auto">
@@ -250,7 +296,9 @@ const NewNotes = () => {
               addFeedback={addFeedback}
               updateNoteField={updateNoteField}
               updateProgressField={updateProgressField}
-
+              deleteFeedback={deleteFeedback}
+              deleteProgress={deleteProgress}
+              deleteNote={deleteNote}
             />
           ))}
         </div>

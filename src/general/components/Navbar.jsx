@@ -5,7 +5,7 @@ export default function Navbar() {
         <nav className="bg-orange-950 p-4 w-full sticky top-0 z-50">
           <div className="text-orange-100 flex justify-between items-center">
             <Link to="/" className="text-orange-100 text-xl font-semibold">
-              Lisence & Permit Expatriate
+              License & Permit Expatriate
             </Link>
 
             <div className="space-x-6 hidden md:flex">
