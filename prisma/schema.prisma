@@ -1,0 +1,65 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      String   @default("employee")
+  createdAt DateTime @default(now())
+
+  todos     Todo[]
+  notes     Note[]
+}
+
+model Todo {
+  id        String   @id @default(cuid())
+  text      String
+  done      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Note {
+  id        String     @id @default(cuid())
+  title     String
+  desc      String?    @db.NVarChar(Max)
+  done      Boolean    @default(false)
+  createdAt DateTime   @default(now())
+
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  progress  Progress[]
+}
+
+model Progress {
+  id        String     @id @default(cuid())
+  act       String     @db.NVarChar(Max)
+  tglAct    DateTime?
+  status    String     @default("Plan")
+  createdAt DateTime   @default(now())
+
+  noteId    String
+  note      Note       @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  feedbacks Feedback[]
+}
+
+model Feedback {
+  id          String    @id @default(cuid())
+  text        String    @db.NVarChar(Max)
+  tglFeedback DateTime?
+  createdAt   DateTime  @default(now())
+
+  progressId  String
+  progress    Progress  @relation(fields: [progressId], references: [id], onDelete: Cascade)
+}
