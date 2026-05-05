@@ -71,7 +71,7 @@ export default function NotesPage() {
           <div className="bg-orange-500 p-2 rounded-2xl shadow-lg shadow-orange-200 text-white">
             <Zap size={20} fill="white" />
           </div>
-          <h1 className="text-xl font-black tracking-tight uppercase">Activity Notes App</h1>
+          <h1 className="text-xl font-black tracking-tight uppercase">Activity Notes</h1>
         </div>
 
         <form onSubmit={addNote} ref={formRef}>

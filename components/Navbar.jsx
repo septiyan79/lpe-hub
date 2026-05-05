@@ -7,8 +7,8 @@ import { LayoutList, BookOpen, Home, LogOut } from "lucide-react";
 
 const navLinks = [
   { href: "/", label: "Home", icon: Home },
-  { href: "/todolist", label: "Todo List", icon: LayoutList },
   { href: "/notes", label: "Activity Notes", icon: BookOpen },
+  { href: "/todolist", label: "Todo List", icon: LayoutList },
 ];
 
 export default function Navbar({ user }) {
@@ -18,7 +18,7 @@ export default function Navbar({ user }) {
     <nav className="sticky top-0 z-50 bg-orange-950 text-white shadow-md">
       <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-6">
-          <span className="font-bold text-lg tracking-wide">LPE HUB</span>
+          <span className="font-bold text-orange-200 text-xl tracking-wide">LPE Portal</span>
           <div className="hidden md:flex items-center gap-1">
             {navLinks.map(({ href, label, icon: Icon }) => (
               <Link
