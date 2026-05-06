@@ -13,7 +13,7 @@ async function main() {
       name: "Wina",
       email: "admin.ga@dnp-g.com",
       password: hashedPassword,
-      role: "admin",
+      role: "user",
     },
   });
 
