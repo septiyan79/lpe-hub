@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
-import { LayoutList, BookOpen, Home, LogOut, ShieldCheck } from "lucide-react";
+import { LayoutList, BookOpen, Home, LogOut, ShieldCheck, UserCircle } from "lucide-react";
 
 const navLinks = [
   { href: "/", label: "Home", icon: Home },
@@ -45,14 +45,21 @@ export default function Navbar({ user }) {
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="hidden md:flex flex-col items-end">
+          <Link
+            href="/profile"
+            className="hidden md:flex flex-col items-end hover:opacity-80 transition"
+          >
             <span className="text-sm text-orange-200">{user?.name}</span>
-            {isAdmin && (
+            {isAdmin ? (
               <span className="text-xs text-orange-400 flex items-center gap-0.5">
                 <ShieldCheck size={11} /> Admin
               </span>
+            ) : (
+              <span className="text-xs text-orange-400 flex items-center gap-0.5">
+                <UserCircle size={11} /> Profil
+              </span>
             )}
-          </div>
+          </Link>
           <button
             onClick={() => signOut({ callbackUrl: "/login" })}
             className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg hover:bg-orange-900 transition"
