@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Users, UserPlus, Pencil, Trash2, X, Check, ShieldCheck, UserRound, Ban } from "lucide-react";
+import { Users, UserPlus, Pencil, Trash2, X, Check, ShieldCheck, UserRound, Ban, Globe } from "lucide-react";
 
-const ROLE_LABELS = { admin: "Admin", employee: "Employee" };
+const ROLE_LABELS = { admin: "Admin", employee: "Employee", expatriate_admin: "Expat Admin" };
 
 const emptyForm = { name: "", email: "", password: "", role: "employee" };
 
@@ -168,7 +168,9 @@ export default function UserManagement({ currentUserId }) {
                     <div className="flex items-center gap-2">
                       {user.role === "admin"
                         ? <ShieldCheck size={15} className="text-orange-600 shrink-0" />
-                        : <UserRound size={15} className="text-gray-400 shrink-0" />
+                        : user.role === "expatriate_admin"
+                          ? <Globe size={15} className="text-blue-500 shrink-0" />
+                          : <UserRound size={15} className="text-gray-400 shrink-0" />
                       }
                       {user.name}
                       {user.id === currentUserId && (
@@ -181,7 +183,9 @@ export default function UserManagement({ currentUserId }) {
                     <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
                       user.role === "admin"
                         ? "bg-orange-100 text-orange-800"
-                        : "bg-gray-100 text-gray-700"
+                        : user.role === "expatriate_admin"
+                          ? "bg-blue-100 text-blue-800"
+                          : "bg-gray-100 text-gray-700"
                     }`}>
                       {ROLE_LABELS[user.role] ?? user.role}
                     </span>
@@ -289,6 +293,7 @@ export default function UserManagement({ currentUserId }) {
                 >
                   <option value="employee">Employee</option>
                   <option value="admin">Admin</option>
+                  <option value="expatriate_admin">Expat Admin</option>
                 </select>
               </div>
 
