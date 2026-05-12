@@ -64,3 +64,147 @@ model Feedback {
   progressId  String
   progress    Progress  @relation(fields: [progressId], references: [id], onDelete: Cascade)
 }
+
+// ─── EXPATRIATE MODULE ────────────────────────────────────────────────────────
+
+// Managed via /expatriate/permit-types page.
+// hasExpiry: false → expiryDate not required (e.g. eVisa)
+// isEPO: true     → one per person, marks departure / permit closure
+// forExpat/forFamily control which dropdowns the type appears in
+model PermitType {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?  @db.NVarChar(Max)
+  forExpat    Boolean  @default(true)
+  forFamily   Boolean  @default(true)
+  hasExpiry   Boolean  @default(true)
+  isEPO       Boolean  @default(false)
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  expatPermits  ExpatPermit[]
+  familyPermits FamilyPermit[]
+}
+
+model Expatriate {
+  id                 String   @id @default(cuid())
+  name               String
+  birthPlace         String
+  birthDate          DateTime
+  gender             String
+  passportNo         String
+  passportIssuedDate DateTime
+  passportExpiryDate DateTime
+  position           String
+  department         String
+  presentAddress     String   @db.NVarChar(Max)
+  permanentAddress   String   @db.NVarChar(Max)
+  arrivalDate        DateTime
+  renewalNo          Int?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  permits   ExpatPermit[]
+  families  ExpatFamily[]
+  histories ExpatHistory[]
+}
+
+model ExpatPermit {
+  id             String    @id @default(cuid())
+  expatId        String
+  permitTypeId   String
+  number         String
+  issuedDate     DateTime
+  expiryDate     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  expat      Expatriate         @relation(fields: [expatId], references: [id], onDelete: Cascade)
+  permitType PermitType         @relation(fields: [permitTypeId], references: [id])
+  histories  ExpatPermitHistory[]
+}
+
+// familyStatus examples: "Wife" | "Husband" | "Child"
+model ExpatFamily {
+  id                 String   @id @default(cuid())
+  expatId            String
+  name               String
+  gender             String
+  birthPlace         String
+  birthDate          DateTime
+  passportNo         String
+  passportIssuedDate DateTime
+  passportExpiryDate DateTime
+  familyStatus       String
+  arrivalDate        DateTime
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  expat     Expatriate           @relation(fields: [expatId], references: [id], onDelete: Cascade)
+  permits   FamilyPermit[]
+  histories ExpatFamilyHistory[]
+}
+
+model FamilyPermit {
+  id           String    @id @default(cuid())
+  familyId     String
+  permitTypeId String
+  number       String
+  issuedDate   DateTime
+  expiryDate   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  family     ExpatFamily          @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  permitType PermitType           @relation(fields: [permitTypeId], references: [id])
+  histories  FamilyPermitHistory[]
+}
+
+// ─── HISTORY TABLES ───────────────────────────────────────────────────────────
+// changes: JSON string { "field": { "before": "...", "after": "..." } }
+// changedBy: User.id (not FK-linked for simplicity)
+
+model ExpatHistory {
+  id        String     @id @default(cuid())
+  expatId   String
+  action    String
+  changes   String     @db.NVarChar(Max)
+  changedAt DateTime   @default(now())
+  changedBy String
+
+  expat     Expatriate @relation(fields: [expatId], references: [id], onDelete: Cascade)
+}
+
+model ExpatPermitHistory {
+  id        String      @id @default(cuid())
+  permitId  String
+  action    String
+  changes   String      @db.NVarChar(Max)
+  changedAt DateTime    @default(now())
+  changedBy String
+
+  permit    ExpatPermit @relation(fields: [permitId], references: [id], onDelete: Cascade)
+}
+
+model ExpatFamilyHistory {
+  id        String      @id @default(cuid())
+  familyId  String
+  action    String
+  changes   String      @db.NVarChar(Max)
+  changedAt DateTime    @default(now())
+  changedBy String
+
+  family    ExpatFamily @relation(fields: [familyId], references: [id], onDelete: Cascade)
+}
+
+model FamilyPermitHistory {
+  id        String      @id @default(cuid())
+  permitId  String
+  action    String
+  changes   String      @db.NVarChar(Max)
+  changedAt DateTime    @default(now())
+  changedBy String
+
+  permit    FamilyPermit @relation(fields: [permitId], references: [id], onDelete: Cascade)
+}
