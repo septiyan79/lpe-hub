@@ -72,16 +72,17 @@ model Feedback {
 // isEPO: true     → one per person, marks departure / permit closure
 // forExpat/forFamily control which dropdowns the type appears in
 model PermitType {
-  id          String   @id @default(cuid())
-  name        String   @unique
-  description String?  @db.NVarChar(Max)
-  forExpat    Boolean  @default(true)
-  forFamily   Boolean  @default(true)
-  hasExpiry   Boolean  @default(true)
-  isEPO       Boolean  @default(false)
-  order       Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                 String   @id @default(cuid())
+  name               String   @unique
+  description        String?  @db.NVarChar(Max)
+  forExpat           Boolean  @default(true)
+  forFamily          Boolean  @default(true)
+  hasExpiry          Boolean  @default(true)
+  isEPO              Boolean  @default(false)
+  linkedToWorkPermit Boolean  @default(false)
+  order              Int      @default(0)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   expatPermits  ExpatPermit[]
   familyPermits FamilyPermit[]

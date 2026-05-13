@@ -44,6 +44,7 @@ const permitByName = (permits, name) => permits?.find(p => p.permitType?.name ==
 export default function ExpatriatePage() {
   const router = useRouter();
   const [list, setList] = useState([]);
+  const [permitTypes, setPermitTypes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [view, setView] = useState("list");
@@ -57,13 +58,16 @@ export default function ExpatriatePage() {
     setLoading(true);
     setFetchError("");
     try {
-      const res = await fetch("/api/expatriate");
-      if (res.ok) {
-        setList(await res.json());
-      } else {
-        const data = await res.json().catch(() => ({}));
-        setFetchError(`Error ${res.status}: ${data.error || res.statusText}`);
+      const [expatRes, typeRes] = await Promise.all([
+        fetch("/api/expatriate"),
+        fetch("/api/expatriate/permit-types"),
+      ]);
+      if (expatRes.ok) setList(await expatRes.json());
+      else {
+        const data = await expatRes.json().catch(() => ({}));
+        setFetchError(`Error ${expatRes.status}: ${data.error || expatRes.statusText}`);
       }
+      if (typeRes.ok) setPermitTypes(await typeRes.json());
     } catch (e) {
       setFetchError(String(e));
     } finally {
@@ -106,7 +110,7 @@ export default function ExpatriatePage() {
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="sticky top-[52px] z-30 bg-orange-50 -mt-14 pt-14 pb-3 flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <Globe size={22} className="text-orange-700" />
           <h1 className="text-xl font-bold text-orange-950">Expatriate</h1>
@@ -151,48 +155,123 @@ export default function ExpatriatePage() {
       )}
 
       {loading ? (
-        <div className="text-center py-16 text-gray-400">Memuat data...</div>
+        <div className="flex flex-col items-center justify-center py-20 gap-3 text-gray-400">
+          <div className="w-8 h-8 border-2 border-orange-300 border-t-orange-600 rounded-full animate-spin" />
+          <span className="text-sm">Memuat data...</span>
+        </div>
       ) : filtered.length === 0 && !fetchError ? (
-        <div className="text-center py-16 text-gray-400">
-          {search ? "Tidak ada hasil untuk pencarian ini" : "Belum ada data expatriate"}
+        <div className="flex flex-col items-center justify-center py-20 gap-3 text-gray-400">
+          <Globe size={40} className="text-gray-200" />
+          <p className="text-sm">{search ? "Tidak ada hasil untuk pencarian ini" : "Belum ada data expatriate"}</p>
         </div>
       ) : view === "list" ? (
         /* ── LIST VIEW ── */
         <div className="grid gap-3">
-          {filtered.map(expat => {
-            const rptka = permitByName(expat.permits, "RPTKA")?.expiryDate;
-            const itas = permitByName(expat.permits, "ITAS")?.expiryDate;
+          {filtered.map((expat, i) => {
+            // Izin kerja: permit dengan linkedToWorkPermit=true, urutan terkecil (Pengesahan RPTKA)
+            const izinKerjaPermit = (expat.permits ?? [])
+              .filter(p => p.permitType?.linkedToWorkPermit)
+              .sort((a, b) => (a.permitType?.order ?? 99) - (b.permitType?.order ?? 99))[0];
+            // Extra warning badges: independent permits (not linked, not EPO) expiring ≤ 90 hari
+            const warningPermits = (expat.permits ?? []).filter(p => {
+              if (p.permitType?.isEPO) return false;
+              if (p.permitType?.linkedToWorkPermit) return false;
+              if (izinKerjaPermit && p.id === izinKerjaPermit.id) return false;
+              if (!p.permitType?.hasExpiry || !p.expiryDate) return false;
+              return daysLeft(p.expiryDate) <= 90;
+            });
+            const urgency = listUrgency(expat);
+            const { borderL, avatarBg, avatarText } = LIST_URGENCY[urgency];
+            const initials = expat.name.trim().split(/\s+/).slice(0, 2).map(w => w[0]).join("").toUpperCase();
+            const familyCount = expat._count?.families ?? 0;
+            const epo = hasEPO(expat);
+
             return (
               <button key={expat.id} onClick={() => router.push(`/expatriate/${expat.id}`)}
-                className="w-full text-left bg-white border border-gray-200 rounded-xl px-5 py-4 hover:border-orange-300 hover:shadow-sm transition group">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-3 mb-1.5">
-                      <span className="font-semibold text-gray-900 text-base">{expat.name}</span>
-                      {hasEPO(expat) && (
-                        <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">EPO</span>
-                      )}
-                    </div>
-                    <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-gray-500">
-                      <span className="flex items-center gap-1"><Briefcase size={13} /> {expat.position} — {expat.department}</span>
-                      <span className="flex items-center gap-1"><CalendarDays size={13} /> Tiba {fmtDate(expat.arrivalDate)}</span>
-                      <span className="flex items-center gap-1"><Users size={13} /> {expat._count?.families ?? 0} keluarga</span>
+                className={`w-full text-left bg-white border border-gray-200 ${borderL} rounded-xl overflow-hidden hover:shadow-md hover:border-orange-300 transition-all duration-200 group`}>
+                <div className="flex items-stretch">
+
+                  {/* Avatar */}
+                  <div className={`flex items-center justify-center w-16 shrink-0 ${avatarBg}`}>
+                    <div className={`w-10 h-10 rounded-full bg-white/25 flex items-center justify-center font-bold text-sm ${avatarText}`}>
+                      {initials || "?"}
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 ml-4 shrink-0">
-                    {rptka && (
-                      <div className="text-right">
-                        <div className="text-xs text-gray-400 mb-0.5">RPTKA exp.</div>
-                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${expiryBadge(rptka)}`}>{fmtDate(rptka)}</span>
-                      </div>
-                    )}
-                    {itas && (
-                      <div className="text-right">
-                        <div className="text-xs text-gray-400 mb-0.5">ITAS exp.</div>
-                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${expiryBadge(itas)}`}>{fmtDate(itas)}</span>
-                      </div>
-                    )}
-                    <ChevronRight size={18} className="text-gray-300 group-hover:text-orange-500 transition" />
+
+                  {/* Main content */}
+                  <div className="flex-1 min-w-0 px-5 py-3.5">
+                    {/* Row 1: name + badges */}
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <span className="font-semibold text-gray-900 text-[15px] leading-snug">{expat.name}</span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        expat.gender === "Male" ? "bg-blue-100 text-blue-600" : "bg-pink-100 text-pink-600"
+                      }`}>
+                        {expat.gender === "Male" ? "Male" : "Female"}
+                      </span>
+                      {epo && (
+                        <span className="text-[10px] font-bold bg-red-100 text-red-600 px-2 py-0.5 rounded-full">EPO</span>
+                      )}
+                      {expat.renewalNo != null && (
+                        <span className="text-[10px] font-semibold bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full">
+                          Perp. ke-{expat.renewalNo}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Row 2: position, dept, arrival, family */}
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-0.5 text-xs text-gray-500">
+                      <span className="flex items-center gap-1">
+                        <Briefcase size={11} className="text-gray-400" />
+                        <span className="text-gray-700 font-medium">{expat.position}</span>
+                      </span>
+                      <span className="text-gray-300">·</span>
+                      <span>{expat.department}</span>
+                      <span className="text-gray-300">·</span>
+                      <span className="flex items-center gap-1">
+                        <CalendarDays size={11} className="text-gray-400" />
+                        Tiba {fmtDate(expat.arrivalDate)}
+                      </span>
+                      {familyCount > 0 && (
+                        <>
+                          <span className="text-gray-300">·</span>
+                          <span className="flex items-center gap-1">
+                            <Users size={11} className="text-gray-400" />
+                            {familyCount} keluarga
+                          </span>
+                        </>
+                      )}
+                    </div>
+
+                    {/* Row 3: permit status pills */}
+                    <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                      {/* Default 1: Passport */}
+                      <PermitPill label="Passport" date={expat.passportExpiryDate} />
+                      {/* Default 2: Izin Kerja (RPTKA → ITAS → fallback) */}
+                      {izinKerjaPermit && (
+                        <PermitPill
+                          label={izinKerjaPermit.permitType?.name}
+                          date={izinKerjaPermit.expiryDate}
+                          hasExpiry={izinKerjaPermit.permitType?.hasExpiry}
+                          issuedDate={izinKerjaPermit.issuedDate}
+                          alwaysShow
+                        />
+                      )}
+                      {/* Extra: permit lain yang ≤ 90 hari / expired */}
+                      {warningPermits.map(p => (
+                        <PermitPill key={p.id}
+                          label={p.permitType?.name}
+                          date={p.expiryDate}
+                          hasExpiry={p.permitType?.hasExpiry}
+                          issuedDate={p.issuedDate}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Right: number + chevron */}
+                  <div className="flex flex-col items-center justify-center gap-1 px-4 shrink-0">
+                    <span className="text-xs text-gray-300 font-medium">#{String(i + 1).padStart(2, "0")}</span>
+                    <ChevronRight size={18} className="text-gray-300 group-hover:text-orange-500 transition-colors" />
                   </div>
                 </div>
               </button>
@@ -201,7 +280,7 @@ export default function ExpatriatePage() {
         </div>
       ) : (
         /* ── TABLE VIEW ── */
-        <TableView data={filtered} onRowClick={id => router.push(`/expatriate/${id}`)} />
+        <TableView data={filtered} permitTypes={permitTypes} onRowClick={id => router.push(`/expatriate/${id}`)} />
       )}
 
       {/* Modal Tambah */}
@@ -271,6 +350,57 @@ function Field({ label, value, onChange, type = "text", required, span2, textare
         : <input type={type} value={value} onChange={e => onChange(e.target.value)} className={cls} required={required} />
       }
     </div>
+  );
+}
+
+// ─── List View Helpers ────────────────────────────────────────────────────────
+
+function listUrgency(expat) {
+  const allDates = [
+    expat.passportExpiryDate,
+    ...(expat.permits ?? [])
+      .filter(p => p.expiryDate && p.permitType?.hasExpiry && !p.permitType?.isEPO)
+      .map(p => p.expiryDate),
+  ].filter(Boolean);
+  if (!allDates.length) return "none";
+  const min = Math.min(...allDates.map(d => daysLeft(d)));
+  if (min < 0) return "expired";
+  if (min <= 30) return "critical";
+  if (min <= 90) return "warning";
+  return "ok";
+}
+
+const LIST_URGENCY = {
+  expired:  { borderL: "border-l-4 border-l-red-300",    avatarBg: "bg-red-100",    avatarText: "text-red-500" },
+  critical: { borderL: "border-l-4 border-l-orange-300", avatarBg: "bg-orange-100", avatarText: "text-orange-500" },
+  warning:  { borderL: "border-l-4 border-l-yellow-300", avatarBg: "bg-yellow-100", avatarText: "text-yellow-600" },
+  ok:       { borderL: "border-l-4 border-l-green-300",  avatarBg: "bg-green-100",  avatarText: "text-green-600" },
+  none:     { borderL: "border-l-4 border-l-gray-200",   avatarBg: "bg-gray-100",   avatarText: "text-gray-400" },
+};
+
+function PermitPill({ label, date, hasExpiry = true, issuedDate, alwaysShow = false }) {
+  let colorCls = "bg-gray-100 text-gray-400";
+
+  if (!hasExpiry) {
+    if (issuedDate) colorCls = "bg-blue-100 text-blue-600";
+    else if (!alwaysShow) return null;
+  } else if (date) {
+    const diff = daysLeft(date);
+    if (diff < 0)        colorCls = "bg-red-100 text-red-600";
+    else if (diff <= 30) colorCls = "bg-orange-100 text-orange-600";
+    else if (diff <= 90) colorCls = "bg-yellow-100 text-yellow-700";
+    else                 colorCls = "bg-green-100 text-green-700";
+  } else if (!alwaysShow) {
+    return null;
+  }
+
+  const showDate = date && (hasExpiry || !issuedDate);
+
+  return (
+    <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${colorCls}`}>
+      {label}
+      {showDate && <span className="font-normal opacity-75">{fmtShort(date)}</span>}
+    </span>
   );
 }
 
@@ -361,10 +491,9 @@ const URGENCY = {
   none:     { bg: "bg-white",        hover: "hover:bg-orange-50/40",  border: "border-l-[3px] border-l-transparent" },
 };
 
-const TABLE_PERMIT_COLS = [
-  "HPK", "RPTKA", "eVisa", "ITAS", "SKTT", "TTKOA",
-  "SKLK-Karawang", "TTP-Karawang", "Keberadaan-Karawang",
-];
+function shortPermitName(name) {
+  return name.replace(/\s*\([^)]+\)\s*/g, " ").trim();
+}
 
 const LEGEND = [
   { color: "bg-red-400",    label: "Expired / hampir expired" },
@@ -374,7 +503,32 @@ const LEGEND = [
   { color: "bg-blue-400",   label: "Sekali terbit" },
 ];
 
-function TableView({ data, onRowClick }) {
+function LinkedNumberCell({ permit }) {
+  const diff = permit.expiryDate ? daysLeft(permit.expiryDate) : null;
+  let bg = "bg-gray-100 text-gray-600";
+  if (diff !== null) {
+    if (diff < 0)        bg = "bg-red-100 text-red-700";
+    else if (diff <= 30) bg = "bg-orange-100 text-orange-700";
+    else if (diff <= 90) bg = "bg-yellow-100 text-yellow-700";
+    else                 bg = "bg-green-50 text-green-700";
+  }
+  return (
+    <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded block max-w-[110px] truncate ${bg}`}
+      title={permit.number}>
+      {permit.number || "✓"}
+    </span>
+  );
+}
+
+function TableView({ data, permitTypes, onRowClick }) {
+  // All non-EPO permit types as columns, sorted by order — always show all columns
+  const permitCols = permitTypes
+    .filter(t => !t.isEPO)
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0) || a.name.localeCompare(b.name));
+
+  // Primary work permit = linkedToWorkPermit with lowest order (Pengesahan RPTKA)
+  const mainWorkPermitId = permitCols.find(c => c.linkedToWorkPermit)?.id;
+
   return (
     <div className="space-y-3">
       {/* Legend + summary */}
@@ -390,9 +544,9 @@ function TableView({ data, onRowClick }) {
         </div>
         <div className="flex items-center gap-3 text-xs">
           {[
-            { label: "Expired", count: data.filter(e => rowUrgency(e) === "expired").length, color: "text-red-600 bg-red-50 border-red-200" },
-            { label: "Kritis",  count: data.filter(e => rowUrgency(e) === "critical").length, color: "text-orange-600 bg-orange-50 border-orange-200" },
-            { label: "Perhatian", count: data.filter(e => rowUrgency(e) === "warning").length, color: "text-yellow-700 bg-yellow-50 border-yellow-200" },
+            { label: "Expired",   count: data.filter(e => rowUrgency(e) === "expired").length,  color: "text-red-600 bg-red-50 border-red-200" },
+            { label: "Kritis",    count: data.filter(e => rowUrgency(e) === "critical").length,  color: "text-orange-600 bg-orange-50 border-orange-200" },
+            { label: "Perhatian", count: data.filter(e => rowUrgency(e) === "warning").length,   color: "text-yellow-700 bg-yellow-50 border-yellow-200" },
           ].map(({ label, count, color }) => count > 0 && (
             <span key={label} className={`px-2.5 py-1 rounded-full border font-semibold ${color}`}>
               {count} {label}
@@ -401,7 +555,7 @@ function TableView({ data, onRowClick }) {
         </div>
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-gray-200 shadow-sm">
+      <div className="overflow-auto rounded-xl border border-gray-200 shadow-sm max-h-[calc(100vh-13rem)]">
         <table className="w-full text-sm border-collapse">
           <thead className="sticky top-0 z-20">
             {/* ── Group headers ── */}
@@ -411,9 +565,9 @@ function TableView({ data, onRowClick }) {
               <th colSpan={2} className="px-4 py-2 text-left border-l border-orange-800">Pekerjaan</th>
               <th colSpan={2} className="px-4 py-2 text-left border-l border-orange-800">Kedatangan</th>
               <th colSpan={1} className="px-4 py-2 text-left border-l border-orange-800">Passport</th>
-              <th colSpan={TABLE_PERMIT_COLS.length} className="px-4 py-2 text-left border-l border-orange-800">
-                Perizinan
-              </th>
+              {permitCols.length > 0 && (
+                <th colSpan={permitCols.length} className="px-4 py-2 text-left border-l border-orange-800">Perizinan</th>
+              )}
               <th colSpan={2} className="px-4 py-2 text-left border-l border-orange-800">Status</th>
             </tr>
             {/* ── Column headers ── */}
@@ -426,9 +580,10 @@ function TableView({ data, onRowClick }) {
               <th className="px-3 py-2.5 text-left border-l border-orange-100">Arrival</th>
               <th className="px-3 py-2.5 text-center">Perp.</th>
               <th className="px-3 py-2.5 text-left border-l border-orange-100">Passport Exp.</th>
-              {TABLE_PERMIT_COLS.map((name, idx) => (
-                <th key={name} className={`px-3 py-2.5 text-left ${idx === 0 ? "border-l border-orange-100" : ""}`}>
-                  {name}
+              {permitCols.map((col, idx) => (
+                <th key={col.id} title={col.name}
+                  className={`px-3 py-2.5 text-left ${idx === 0 ? "border-l border-orange-100" : ""}`}>
+                  {shortPermitName(col.name)}
                 </th>
               ))}
               <th className="px-3 py-2.5 text-center border-l border-orange-100">Keluarga</th>
@@ -446,12 +601,8 @@ function TableView({ data, onRowClick }) {
                 <tr key={expat.id} onClick={() => onRowClick(expat.id)}
                   className={`cursor-pointer transition ${bg} ${hover} ${border}`}>
 
-                  {/* No */}
-                  <td className="px-3 py-3 text-center text-gray-400 text-xs font-medium w-10">
-                    {i + 1}
-                  </td>
+                  <td className="px-3 py-3 text-center text-gray-400 text-xs font-medium w-10">{i + 1}</td>
 
-                  {/* Nama */}
                   <td className="px-3 py-3 border-l border-gray-100 min-w-[170px]">
                     <div className="font-semibold text-gray-900 text-[13px] leading-snug">{expat.name}</div>
                     {epoPermit && (
@@ -461,7 +612,6 @@ function TableView({ data, onRowClick }) {
                     )}
                   </td>
 
-                  {/* Gender */}
                   <td className="px-3 py-3 text-center">
                     <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
                       expat.gender === "Male" ? "bg-blue-100 text-blue-700" : "bg-pink-100 text-pink-700"
@@ -470,26 +620,22 @@ function TableView({ data, onRowClick }) {
                     </span>
                   </td>
 
-                  {/* Jabatan */}
                   <td className="px-3 py-3 border-l border-gray-100">
                     <div className="text-gray-800 text-[12px] font-medium max-w-[140px] truncate leading-snug" title={expat.position}>
                       {expat.position}
                     </div>
                   </td>
 
-                  {/* Department */}
                   <td className="px-3 py-3">
                     <div className="text-gray-500 text-[12px] max-w-[130px] truncate" title={expat.department}>
                       {expat.department}
                     </div>
                   </td>
 
-                  {/* Arrival */}
                   <td className="px-3 py-3 border-l border-gray-100 whitespace-nowrap">
                     <div className="text-gray-600 text-xs">{fmtShort(expat.arrivalDate)}</div>
                   </td>
 
-                  {/* Perpanjangan ke- */}
                   <td className="px-3 py-3 text-center">
                     {expat.renewalNo != null
                       ? <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-orange-100 text-orange-700 text-xs font-bold">
@@ -499,30 +645,34 @@ function TableView({ data, onRowClick }) {
                     }
                   </td>
 
-                  {/* Passport Expiry */}
                   <td className="px-3 py-3 border-l border-gray-100">
                     <ExpiryBadge date={expat.passportExpiryDate} number={expat.passportNo} />
                   </td>
 
-                  {/* Permit columns */}
-                  {TABLE_PERMIT_COLS.map((name, idx) => {
-                    const p = expat.permits?.find(x => x.permitType?.name === name);
+                  {/* Permit columns — match by permitTypeId */}
+                  {permitCols.map((col, idx) => {
+                    const p = expat.permits?.find(x => x.permitTypeId === col.id);
+                    const isLinkedNonPrimary = col.linkedToWorkPermit && col.id !== mainWorkPermitId;
+                    const isNumberOnly = isLinkedNonPrimary || shortPermitName(col.name) === "HPK";
                     return (
-                      <td key={name} className={`px-3 py-3 ${idx === 0 ? "border-l border-gray-100" : ""}`}>
-                        {p
-                          ? <ExpiryBadge
-                              date={p.expiryDate}
-                              hasExpiry={p.permitType?.hasExpiry}
-                              issuedDate={p.issuedDate}
-                              number={p.number}
-                            />
-                          : <span className="text-gray-200 text-xs">—</span>
+                      <td key={col.id} className={`px-3 py-3 ${idx === 0 ? "border-l border-gray-100" : ""}`}>
+                        {isNumberOnly
+                          ? p
+                            ? <LinkedNumberCell permit={p} />
+                            : <span className="text-gray-200 text-xs">—</span>
+                          : p
+                            ? <ExpiryBadge
+                                date={p.expiryDate}
+                                hasExpiry={p.permitType?.hasExpiry}
+                                issuedDate={p.issuedDate}
+                                number={p.number}
+                              />
+                            : <span className="text-gray-200 text-xs">—</span>
                         }
                       </td>
                     );
                   })}
 
-                  {/* Keluarga */}
                   <td className="px-3 py-3 text-center border-l border-gray-100">
                     {(expat._count?.families ?? 0) > 0
                       ? <span className="inline-flex items-center gap-1 text-xs font-semibold text-gray-700">
@@ -533,7 +683,6 @@ function TableView({ data, onRowClick }) {
                     }
                   </td>
 
-                  {/* EPO */}
                   <td className="px-3 py-3 text-center">
                     {epoPermit
                       ? <div className="leading-tight">
@@ -562,17 +711,15 @@ function TableView({ data, onRowClick }) {
               </td>
               <td colSpan={4} />
               <td className="px-3 py-2" />
-              {TABLE_PERMIT_COLS.map(name => (
-                <td key={name} className="px-3 py-2 text-center">
-                  <span className="text-gray-400">
-                    {data.filter(e => e.permits?.some(p => p.permitType?.name === name)).length}
-                  </span>
+              {permitCols.map(col => (
+                <td key={col.id} className="px-3 py-2 text-center">
+                  {data.filter(e => e.permits?.some(p => p.permitTypeId === col.id)).length}
                 </td>
               ))}
-              <td className="px-3 py-2 text-center text-gray-400">
+              <td className="px-3 py-2 text-center">
                 {data.reduce((sum, e) => sum + (e._count?.families ?? 0), 0)}
               </td>
-              <td className="px-3 py-2 text-center text-gray-400">
+              <td className="px-3 py-2 text-center">
                 {data.filter(e => e.permits?.some(p => p.permitType?.isEPO)).length}
               </td>
             </tr>

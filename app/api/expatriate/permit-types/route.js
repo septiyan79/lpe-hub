@@ -17,7 +17,7 @@ export async function POST(req) {
   const session = await requireExpatAdmin();
   if (!session) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const { name, description, forExpat, forFamily, hasExpiry, isEPO, order } = await req.json();
+  const { name, description, forExpat, forFamily, hasExpiry, isEPO, linkedToWorkPermit, order } = await req.json();
   if (!name?.trim()) return NextResponse.json({ error: "Nama wajib diisi" }, { status: 400 });
 
   const existing = await prisma.permitType.findUnique({ where: { name } });
@@ -31,6 +31,7 @@ export async function POST(req) {
       forFamily: forFamily ?? true,
       hasExpiry: hasExpiry ?? true,
       isEPO: isEPO ?? false,
+      linkedToWorkPermit: linkedToWorkPermit ?? false,
       order: order != null ? Number(order) : 0,
     },
   });
