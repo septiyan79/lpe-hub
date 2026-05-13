@@ -23,6 +23,7 @@ export async function PATCH(req, { params }) {
   if (body.forFamily !== undefined) data.forFamily = Boolean(body.forFamily);
   if (body.hasExpiry !== undefined) data.hasExpiry = Boolean(body.hasExpiry);
   if (body.isEPO !== undefined) data.isEPO = Boolean(body.isEPO);
+  if (body.linkedToWorkPermit !== undefined) data.linkedToWorkPermit = Boolean(body.linkedToWorkPermit);
   if (body.order !== undefined) data.order = Number(body.order);
 
   const updated = await prisma.permitType.update({ where: { id: typeId }, data });
