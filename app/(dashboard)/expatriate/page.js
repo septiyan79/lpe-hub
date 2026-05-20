@@ -4,8 +4,49 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   Globe, UserPlus, X, Search, Users, Briefcase,
-  ChevronRight, CalendarDays, LayoutList, Table2,
+  ChevronRight, CalendarDays, LayoutList, Table2, FileDown,
 } from "lucide-react";
+import * as XLSX from "xlsx";
+
+const FIXED_EXPORT_COLS = [
+  { key: "no",                  label: "No",               group: "Identitas"  },
+  { key: "name",                label: "Nama",             group: "Identitas"  },
+  { key: "gender",              label: "Gender",           group: "Identitas"  },
+  { key: "birthPlace",          label: "Tempat Lahir",     group: "Identitas"  },
+  { key: "birthDate",           label: "Tanggal Lahir",    group: "Identitas"  },
+  { key: "position",            label: "Jabatan",          group: "Pekerjaan"  },
+  { key: "department",          label: "Departemen",       group: "Pekerjaan"  },
+  { key: "arrivalDate",         label: "Tgl Tiba",         group: "Pekerjaan"  },
+  { key: "renewalNo",           label: "Perpanjangan ke-", group: "Pekerjaan"  },
+  { key: "passportNo",          label: "No. Passport",     group: "Passport"   },
+  { key: "passportIssuedDate",  label: "Passport Issued",  group: "Passport"   },
+  { key: "passportExpiryDate",  label: "Passport Expiry",  group: "Passport"   },
+  { key: "familyCount",         label: "Jumlah Keluarga",  group: "Status"     },
+  { key: "epo",                 label: "EPO",              group: "Status"     },
+];
+
+function getExportValue(expat, key, i) {
+  switch (key) {
+    case "no":                  return i + 1;
+    case "name":                return expat.name;
+    case "gender":              return expat.gender;
+    case "birthPlace":          return expat.birthPlace || "";
+    case "birthDate":           return expat.birthDate ? fmtDate(expat.birthDate) : "";
+    case "position":            return expat.position;
+    case "department":          return expat.department;
+    case "arrivalDate":         return expat.arrivalDate ? fmtDate(expat.arrivalDate) : "";
+    case "renewalNo":           return expat.renewalNo != null ? expat.renewalNo : "";
+    case "passportNo":          return expat.passportNo || "";
+    case "passportIssuedDate":  return expat.passportIssuedDate ? fmtDate(expat.passportIssuedDate) : "";
+    case "passportExpiryDate":  return expat.passportExpiryDate ? fmtDate(expat.passportExpiryDate) : "";
+    case "familyCount":         return expat._count?.families ?? 0;
+    case "epo": {
+      const epo = expat.permits?.find(p => p.permitType?.isEPO);
+      return epo ? (epo.expiryDate ? fmtDate(epo.expiryDate) : "Ya") : "";
+    }
+    default: return "";
+  }
+}
 
 const EMPTY_FORM = {
   name: "", birthPlace: "", birthDate: "", gender: "Male",
@@ -53,6 +94,7 @@ export default function ExpatriatePage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [fetchError, setFetchError] = useState("");
+  const [exportModal, setExportModal] = useState(false);
 
   async function fetchList() {
     setLoading(true);
@@ -140,6 +182,11 @@ export default function ExpatriatePage() {
               <Table2 size={16} />
             </button>
           </div>
+          <button onClick={() => setExportModal(true)} disabled={filtered.length === 0}
+            className="flex items-center gap-1.5 border border-green-600 text-green-700 hover:bg-green-50 disabled:opacity-40 text-sm px-4 py-2 rounded-lg transition">
+            <FileDown size={15} />
+            Export Excel
+          </button>
           <button onClick={openAdd}
             className="flex items-center gap-1.5 bg-orange-700 hover:bg-orange-800 text-white text-sm px-4 py-2 rounded-lg transition">
             <UserPlus size={15} />
@@ -336,6 +383,13 @@ export default function ExpatriatePage() {
           </div>
         </div>
       )}
+      {exportModal && (
+        <ExportModal
+          data={filtered}
+          permitTypes={permitTypes}
+          onClose={() => setExportModal(false)}
+        />
+      )}
     </div>
   );
 }
@@ -349,6 +403,169 @@ function Field({ label, value, onChange, type = "text", required, span2, textare
         ? <textarea value={value} onChange={e => onChange(e.target.value)} rows={2} className={cls} required={required} />
         : <input type={type} value={value} onChange={e => onChange(e.target.value)} className={cls} required={required} />
       }
+    </div>
+  );
+}
+
+// ─── Export Modal ─────────────────────────────────────────────────────────────
+
+const FIXED_GROUPS = [...new Set(FIXED_EXPORT_COLS.map(c => c.group))];
+
+function ExportModal({ data, permitTypes, onClose }) {
+  const nonEpoPermits = permitTypes
+    .filter(t => !t.isEPO)
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+  const [selFixed, setSelFixed] = useState(new Set(FIXED_EXPORT_COLS.map(c => c.key)));
+  const [selPermits, setSelPermits] = useState(new Set(nonEpoPermits.map(t => t.id)));
+
+  function toggleFixed(key) {
+    setSelFixed(prev => { const s = new Set(prev); s.has(key) ? s.delete(key) : s.add(key); return s; });
+  }
+  function togglePermit(id) {
+    setSelPermits(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
+  }
+  function toggleGroup(group) {
+    const keys = FIXED_EXPORT_COLS.filter(c => c.group === group).map(c => c.key);
+    const allOn = keys.every(k => selFixed.has(k));
+    setSelFixed(prev => {
+      const s = new Set(prev);
+      keys.forEach(k => allOn ? s.delete(k) : s.add(k));
+      return s;
+    });
+  }
+  function selectAll() {
+    setSelFixed(new Set(FIXED_EXPORT_COLS.map(c => c.key)));
+    setSelPermits(new Set(nonEpoPermits.map(t => t.id)));
+  }
+  function deselectAll() { setSelFixed(new Set()); setSelPermits(new Set()); }
+
+  const totalCols = selFixed.size + selPermits.size * 2;
+
+  function handleExport() {
+    const selectedFixed = FIXED_EXPORT_COLS.filter(c => selFixed.has(c.key));
+    const selectedPermits = nonEpoPermits.filter(t => selPermits.has(t.id));
+
+    const headers = [
+      ...selectedFixed.map(c => c.label),
+      ...selectedPermits.flatMap(t => {
+        const name = t.name.replace(/\s*\([^)]+\)\s*/g, " ").trim();
+        return [name, `${name} - No.`];
+      }),
+    ];
+
+    const rows = data.map((expat, i) => [
+      ...selectedFixed.map(c => getExportValue(expat, c.key, i)),
+      ...selectedPermits.flatMap(t => {
+        const p = expat.permits?.find(x => x.permitTypeId === t.id);
+        if (!p) return ["", ""];
+        const dateVal = t.hasExpiry
+          ? (p.expiryDate ? fmtDate(p.expiryDate) : "")
+          : (p.issuedDate ? fmtDate(p.issuedDate) : "");
+        return [dateVal, p.number || ""];
+      }),
+    ]);
+
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    ws["!cols"] = headers.map((h, ci) => ({
+      wch: Math.max(h.length + 2, ...rows.map(r => String(r[ci] ?? "").length + 1)),
+    }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Expatriate");
+    XLSX.writeFile(wb, `expatriate_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    onClose();
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg flex flex-col max-h-[88vh]">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 pt-6 pb-4">
+          <div>
+            <h2 className="font-bold text-lg text-orange-950">Export ke Excel</h2>
+            <p className="text-xs text-gray-400 mt-0.5">{data.length} data · {totalCols} kolom dipilih</p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+        </div>
+
+        {/* Select all / none */}
+        <div className="flex items-center gap-3 px-6 pb-3 border-b">
+          <button onClick={selectAll} className="text-xs font-medium text-orange-700 hover:underline">Pilih Semua</button>
+          <span className="text-gray-200">|</span>
+          <button onClick={deselectAll} className="text-xs text-gray-400 hover:underline">Hapus Semua</button>
+        </div>
+
+        {/* Column list */}
+        <div className="overflow-y-auto flex-1 px-6 py-4 space-y-5">
+          {FIXED_GROUPS.map(group => {
+            const cols = FIXED_EXPORT_COLS.filter(c => c.group === group);
+            const allOn = cols.every(c => selFixed.has(c.key));
+            return (
+              <div key={group}>
+                <div className="flex items-center gap-2 mb-2">
+                  <button onClick={() => toggleGroup(group)}
+                    className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded transition ${
+                      allOn ? "bg-orange-100 text-orange-700" : "bg-gray-100 text-gray-400"
+                    }`}>
+                    {group}
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-y-2 gap-x-4 pl-1">
+                  {cols.map(col => (
+                    <label key={col.key} className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" checked={selFixed.has(col.key)} onChange={() => toggleFixed(col.key)}
+                        className="rounded accent-orange-600" />
+                      <span className={`text-sm ${selFixed.has(col.key) ? "text-gray-800" : "text-gray-400"}`}>
+                        {col.label}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+
+          {nonEpoPermits.length > 0 && (
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <button onClick={() => {
+                  const allOn = nonEpoPermits.every(t => selPermits.has(t.id));
+                  setSelPermits(allOn ? new Set() : new Set(nonEpoPermits.map(t => t.id)));
+                }} className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded transition ${
+                  nonEpoPermits.every(t => selPermits.has(t.id)) ? "bg-orange-100 text-orange-700" : "bg-gray-100 text-gray-400"
+                }`}>
+                  Perizinan
+                </button>
+                <span className="text-[10px] text-gray-400">2 kolom per izin (tanggal + nomor)</span>
+              </div>
+              <div className="grid grid-cols-2 gap-y-2 gap-x-4 pl-1">
+                {nonEpoPermits.map(t => (
+                  <label key={t.id} className="flex items-center gap-2 cursor-pointer" title={t.name}>
+                    <input type="checkbox" checked={selPermits.has(t.id)} onChange={() => togglePermit(t.id)}
+                      className="rounded accent-orange-600" />
+                    <span className={`text-sm truncate ${selPermits.has(t.id) ? "text-gray-800" : "text-gray-400"}`}>
+                      {t.name.replace(/\s*\([^)]+\)\s*/g, " ").trim()}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex gap-3 px-6 py-4 border-t">
+          <button onClick={onClose}
+            className="flex-1 border border-gray-300 text-gray-700 rounded-lg py-2 text-sm hover:bg-gray-50 transition">
+            Batal
+          </button>
+          <button onClick={handleExport} disabled={totalCols === 0}
+            className="flex-1 bg-green-700 hover:bg-green-800 disabled:opacity-40 text-white rounded-lg py-2 text-sm transition flex items-center justify-center gap-2">
+            <FileDown size={15} />
+            Export ({totalCols} kolom)
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -484,11 +701,11 @@ function rowUrgency(expat) {
 }
 
 const URGENCY = {
-  expired: { bg: "bg-red-50",       hover: "hover:bg-red-100/70",    border: "border-l-[3px] border-l-red-500"    },
-  critical: { bg: "bg-orange-50/50", hover: "hover:bg-orange-100/60", border: "border-l-[3px] border-l-orange-400" },
-  warning:  { bg: "bg-yellow-50/40", hover: "hover:bg-yellow-100/50", border: "border-l-[3px] border-l-yellow-400" },
-  ok:       { bg: "bg-white",        hover: "hover:bg-orange-50/40",  border: "border-l-[3px] border-l-transparent" },
-  none:     { bg: "bg-white",        hover: "hover:bg-orange-50/40",  border: "border-l-[3px] border-l-transparent" },
+  expired:  { bg: "bg-red-50",       hover: "hover:bg-red-100/70",    border: "border-l-[3px] border-l-red-500",    stickyBg: "bg-red-50",    stickyHover: "group-hover:bg-red-100"    },
+  critical: { bg: "bg-orange-50/50", hover: "hover:bg-orange-100/60", border: "border-l-[3px] border-l-orange-400", stickyBg: "bg-orange-50", stickyHover: "group-hover:bg-orange-100" },
+  warning:  { bg: "bg-yellow-50/40", hover: "hover:bg-yellow-100/50", border: "border-l-[3px] border-l-yellow-400", stickyBg: "bg-yellow-50", stickyHover: "group-hover:bg-yellow-100" },
+  ok:       { bg: "bg-white",        hover: "hover:bg-orange-50/40",  border: "border-l-[3px] border-l-transparent", stickyBg: "bg-white",    stickyHover: "group-hover:bg-orange-50"  },
+  none:     { bg: "bg-white",        hover: "hover:bg-orange-50/40",  border: "border-l-[3px] border-l-transparent", stickyBg: "bg-white",    stickyHover: "group-hover:bg-orange-50"  },
 };
 
 function shortPermitName(name) {
@@ -556,11 +773,11 @@ function TableView({ data, permitTypes, onRowClick }) {
       </div>
 
       <div className="overflow-auto rounded-xl border border-gray-200 shadow-sm max-h-[calc(100vh-13rem)]">
-        <table className="w-full text-sm border-collapse">
+        <table className="w-full text-sm border-separate" style={{ borderSpacing: 0 }}>
           <thead className="sticky top-0 z-20">
             {/* ── Group headers ── */}
             <tr className="bg-orange-950 text-orange-200 text-[10px] font-bold uppercase tracking-widest">
-              <th className="w-10 px-3 py-2" />
+              <th className="sticky left-0 z-20 w-10 px-3 py-2 bg-orange-950 shadow-[1px_0_0_0_#9a3412]" style={{ width: '40px', minWidth: '40px', maxWidth: '40px' }} />
               <th colSpan={2} className="px-4 py-2 text-left border-l border-orange-800">Identitas</th>
               <th colSpan={2} className="px-4 py-2 text-left border-l border-orange-800">Pekerjaan</th>
               <th colSpan={2} className="px-4 py-2 text-left border-l border-orange-800">Kedatangan</th>
@@ -572,8 +789,8 @@ function TableView({ data, permitTypes, onRowClick }) {
             </tr>
             {/* ── Column headers ── */}
             <tr className="bg-orange-50 border-b-2 border-orange-200 text-[11px] font-semibold text-orange-900 whitespace-nowrap">
-              <th className="w-10 px-3 py-2.5 text-center text-gray-500">#</th>
-              <th className="px-3 py-2.5 text-left border-l border-orange-100 min-w-[170px]">Nama</th>
+              <th className="sticky left-0 z-20 w-10 px-3 py-2.5 text-center text-gray-500 bg-orange-50" style={{ width: '40px', minWidth: '40px', maxWidth: '40px' }}>#</th>
+              <th className="sticky left-10 z-20 px-3 py-2.5 text-left min-w-[170px] bg-orange-50 shadow-[1px_0_0_0_#fed7aa]">Nama</th>
               <th className="px-3 py-2.5 text-center">Gender</th>
               <th className="px-3 py-2.5 text-left border-l border-orange-100 min-w-[130px]">Jabatan</th>
               <th className="px-3 py-2.5 text-left min-w-[120px]">Dept.</th>
@@ -595,15 +812,17 @@ function TableView({ data, permitTypes, onRowClick }) {
             {data.map((expat, i) => {
               const epoPermit = expat.permits?.find(p => p.permitType?.isEPO);
               const urgency = rowUrgency(expat);
-              const { bg, hover, border } = URGENCY[urgency];
+              const { bg, hover, border, stickyBg, stickyHover } = URGENCY[urgency];
 
               return (
                 <tr key={expat.id} onClick={() => onRowClick(expat.id)}
-                  className={`cursor-pointer transition ${bg} ${hover} ${border}`}>
+                  className={`group cursor-pointer transition ${bg} ${hover}`}>
 
-                  <td className="px-3 py-3 text-center text-gray-400 text-xs font-medium w-10">{i + 1}</td>
+                  <td className={`sticky left-0 z-10 px-3 py-3 text-center text-gray-400 text-xs font-medium w-10 transition ${stickyBg} ${stickyHover} ${border}`} style={{ width: '40px', minWidth: '40px', maxWidth: '40px' }}>
+                    {i + 1}
+                  </td>
 
-                  <td className="px-3 py-3 border-l border-gray-100 min-w-[170px]">
+                  <td className={`sticky left-10 z-10 px-3 py-3 min-w-[170px] shadow-[1px_0_0_0_#e5e7eb] transition ${stickyBg} ${stickyHover}`}>
                     <div className="font-semibold text-gray-900 text-[13px] leading-snug">{expat.name}</div>
                     {epoPermit && (
                       <span className="mt-0.5 inline-block text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-semibold leading-none">
