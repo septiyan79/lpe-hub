@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   Globe, ArrowLeft, Pencil, Trash2, X, Plus,
   User, FileText, Users, ChevronDown, ChevronUp, Save,
-  Briefcase, CalendarDays, MapPin,
+  Briefcase, CalendarDays, MapPin, RotateCcw,
 } from "lucide-react";
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -142,6 +142,11 @@ function PermitSection({ permits, expatId, familyId, permitTypes, onRefresh }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  const [renewModal, setRenewModal] = useState(null);
+  const [renewForm, setRenewForm] = useState({ number: "", issuedDate: "", expiryDate: "" });
+  const [renewSaving, setRenewSaving] = useState(false);
+  const [renewError, setRenewError] = useState("");
+
   const baseUrl = familyId
     ? `/api/expatriate/${expatId}/family/${familyId}/permits`
     : `/api/expatriate/${expatId}/permits`;
@@ -193,6 +198,31 @@ function PermitSection({ permits, expatId, familyId, permitTypes, onRefresh }) {
     if (!confirm(`Hapus permit ${p.permitType?.name ?? ""} — ${p.number}?`)) return;
     await fetch(`${baseUrl}/${p.id}`, { method: "DELETE" });
     onRefresh();
+  }
+
+  function openRenew(p) {
+    setRenewForm({ number: "", issuedDate: "", expiryDate: "" });
+    setRenewError("");
+    setRenewModal(p);
+  }
+
+  async function handleRenew(e) {
+    e.preventDefault();
+    setRenewSaving(true);
+    setRenewError("");
+    try {
+      const res = await fetch(`${baseUrl}/${renewModal.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(renewForm),
+      });
+      const data = await res.json();
+      if (!res.ok) { setRenewError(data.error || "Gagal menyimpan"); return; }
+      setRenewModal(null);
+      onRefresh();
+    } finally {
+      setRenewSaving(false);
+    }
   }
 
   function setF(k, v) { setForm(f => ({ ...f, [k]: v })); }
@@ -275,6 +305,12 @@ function PermitSection({ permits, expatId, familyId, permitTypes, onRefresh }) {
                     </span>
                   )}
                   <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition">
+                    {hasExp && (
+                      <button onClick={() => openRenew(p)} title="Perpanjang izin"
+                        className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-500">
+                        <RotateCcw size={12} />
+                      </button>
+                    )}
                     <button onClick={() => openEdit(p)} className="p-1.5 rounded-lg hover:bg-orange-100 text-orange-600">
                       <Pencil size={12} />
                     </button>
@@ -357,6 +393,68 @@ function PermitSection({ permits, expatId, familyId, permitTypes, onRefresh }) {
               </div>
             </form>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal Perpanjang ── */}
+      {renewModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <RotateCcw size={16} className="text-blue-500" />
+                <h3 className="font-bold text-orange-950">Perpanjang Izin</h3>
+              </div>
+              <button onClick={() => setRenewModal(null)}><X size={18} className="text-gray-400" /></button>
+            </div>
+
+            {/* Info izin lama */}
+            <div className="bg-gray-50 border border-gray-100 rounded-lg px-3 py-2.5 mb-4 text-xs">
+              <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-1">Izin saat ini</p>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-bold text-gray-700">{renewModal.permitType?.name}</span>
+                <span className="font-mono text-gray-500">{renewModal.number}</span>
+                {renewModal.expiryDate && (
+                  <span className={`px-1.5 py-0.5 rounded-full font-medium ${expiryColor(renewModal.expiryDate)}`}>
+                    s/d {fmtDate(renewModal.expiryDate)}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <form onSubmit={handleRenew} className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nomor Baru</label>
+                <input value={renewForm.number} onChange={e => setRenewForm(f => ({ ...f, number: e.target.value }))} required
+                  placeholder={renewModal.number}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Issued Date</label>
+                  <input type="date" value={renewForm.issuedDate} onChange={e => setRenewForm(f => ({ ...f, issuedDate: e.target.value }))} required
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Expiry Date</label>
+                  <input type="date" value={renewForm.expiryDate} onChange={e => setRenewForm(f => ({ ...f, expiryDate: e.target.value }))} required
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                </div>
+              </div>
+              {renewError && <p className="text-sm text-red-500">{renewError}</p>}
+              <div className="flex gap-3 pt-1">
+                <button type="button" onClick={() => setRenewModal(null)}
+                  className="flex-1 border border-gray-300 text-gray-700 rounded-lg py-2 text-sm hover:bg-gray-50 transition">
+                  Batal
+                </button>
+                <button type="submit" disabled={renewSaving}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-2 text-sm transition disabled:opacity-60 flex items-center justify-center gap-1.5">
+                  <RotateCcw size={13} />
+                  {renewSaving ? "Menyimpan..." : "Perpanjang"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
