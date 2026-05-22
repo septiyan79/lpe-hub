@@ -68,8 +68,9 @@ model Feedback {
 // ─── EXPATRIATE MODULE ────────────────────────────────────────────────────────
 
 // Managed via /expatriate/permit-types page.
-// hasExpiry: false → expiryDate not required (e.g. eVisa)
-// isEPO: true     → one per person, marks departure / permit closure
+// hasExpiry: false      → expiryDate not required
+// isOneTime: true       → issued once, expiry date shown but NOT counted as urgency when expired (e.g. eVisa)
+// isEPO: true           → one per person, marks departure / permit closure
 // forExpat/forFamily control which dropdowns the type appears in
 model PermitType {
   id                 String   @id @default(cuid())
@@ -78,6 +79,7 @@ model PermitType {
   forExpat           Boolean  @default(true)
   forFamily          Boolean  @default(true)
   hasExpiry          Boolean  @default(true)
+  isOneTime          Boolean  @default(false)
   isEPO              Boolean  @default(false)
   linkedToWorkPermit Boolean  @default(false)
   order              Int      @default(0)
