@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   Globe, UserPlus, X, Search, Users, Briefcase,
-  ChevronRight, CalendarDays, LayoutList, Table2, FileDown,
+  ChevronRight, CalendarDays, LayoutList, Table2, FileDown, LogOut,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 
@@ -182,6 +182,11 @@ export default function ExpatriatePage() {
               <Table2 size={16} />
             </button>
           </div>
+          <button onClick={() => router.push("/expatriate/epo")}
+            className="flex items-center gap-1.5 border border-red-300 text-red-600 hover:bg-red-50 text-sm px-4 py-2 rounded-lg transition">
+            <LogOut size={15} />
+            Daftar Keluar
+          </button>
           <button onClick={() => setExportModal(true)} disabled={filtered.length === 0}
             className="flex items-center gap-1.5 border border-green-600 text-green-700 hover:bg-green-50 disabled:opacity-40 text-sm px-4 py-2 rounded-lg transition">
             <FileDown size={15} />
@@ -624,6 +629,16 @@ function PermitPill({ label, date, hasExpiry = true, isOneTime = false, issuedDa
 // ─── Table View ───────────────────────────────────────────────────────────────
 
 function ExpiryBadge({ date, hasExpiry = true, isOneTime = false, issuedDate, number }) {
+  // isOneTime: show number in blue only, never show expiry date
+  if (isOneTime) {
+    if (!number) return <span className="text-gray-300 text-xs">—</span>;
+    return (
+      <span className="text-[10px] font-mono text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded max-w-[110px] truncate block" title={number}>
+        {number}
+      </span>
+    );
+  }
+
   const numEl = number
     ? <div className="text-[10px] text-gray-400 mt-0.5 max-w-[100px] truncate" title={number}>{number}</div>
     : null;
@@ -646,14 +661,6 @@ function ExpiryBadge({ date, hasExpiry = true, isOneTime = false, issuedDate, nu
   const days = daysLeft(date);
 
   if (days < 0) {
-    if (isOneTime) return (
-      <div className="leading-tight">
-        <span className="text-[11px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-medium inline-block">
-          {fmtShort(date)}
-        </span>
-        {numEl}
-      </div>
-    );
     return (
       <div className="leading-tight">
         <span className="text-[11px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-semibold inline-block">
@@ -795,7 +802,7 @@ function TableView({ data, permitTypes, onRowClick }) {
               {permitCols.length > 0 && (
                 <th colSpan={permitCols.length} className="px-4 py-2 text-left border-l border-orange-800">Perizinan</th>
               )}
-              <th colSpan={2} className="px-4 py-2 text-left border-l border-orange-800">Status</th>
+              <th colSpan={1} className="px-4 py-2 text-left border-l border-orange-800">Status</th>
             </tr>
             {/* ── Column headers ── */}
             <tr className="bg-orange-50 border-b-2 border-orange-200 text-[11px] font-semibold text-orange-900 whitespace-nowrap">
@@ -814,7 +821,6 @@ function TableView({ data, permitTypes, onRowClick }) {
                 </th>
               ))}
               <th className="px-3 py-2.5 text-center border-l border-orange-100">Keluarga</th>
-              <th className="px-3 py-2.5 text-center">EPO</th>
             </tr>
           </thead>
 
@@ -912,22 +918,6 @@ function TableView({ data, permitTypes, onRowClick }) {
                       : <span className="text-gray-300 text-xs">—</span>
                     }
                   </td>
-
-                  <td className="px-3 py-3 text-center">
-                    {epoPermit
-                      ? <div className="leading-tight">
-                          <span className="text-[11px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-semibold inline-block">
-                            {fmtShort(epoPermit.expiryDate || epoPermit.issuedDate)}
-                          </span>
-                          {epoPermit.number && (
-                            <div className="text-[10px] text-gray-400 mt-0.5 max-w-[90px] truncate mx-auto" title={epoPermit.number}>
-                              {epoPermit.number}
-                            </div>
-                          )}
-                        </div>
-                      : <span className="text-gray-200 text-xs">—</span>
-                    }
-                  </td>
                 </tr>
               );
             })}
@@ -948,9 +938,6 @@ function TableView({ data, permitTypes, onRowClick }) {
               ))}
               <td className="px-3 py-2 text-center">
                 {data.reduce((sum, e) => sum + (e._count?.families ?? 0), 0)}
-              </td>
-              <td className="px-3 py-2 text-center">
-                {data.filter(e => e.permits?.some(p => p.permitType?.isEPO)).length}
               </td>
             </tr>
           </tfoot>
