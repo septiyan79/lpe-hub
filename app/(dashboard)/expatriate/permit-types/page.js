@@ -9,7 +9,7 @@ import {
 const EMPTY_FORM = {
   name: "", description: "",
   forExpat: true, forFamily: true,
-  hasExpiry: true, isEPO: false,
+  hasExpiry: true, isOneTime: false, isEPO: false,
   linkedToWorkPermit: false,
   order: 0,
 };
@@ -59,7 +59,7 @@ export default function PermitTypesPage() {
     setForm({
       name: t.name, description: t.description ?? "",
       forExpat: t.forExpat, forFamily: t.forFamily,
-      hasExpiry: t.hasExpiry, isEPO: t.isEPO,
+      hasExpiry: t.hasExpiry, isOneTime: t.isOneTime, isEPO: t.isEPO,
       linkedToWorkPermit: t.linkedToWorkPermit,
       order: t.order,
     });
@@ -148,6 +148,7 @@ export default function PermitTypesPage() {
                 <th className="px-4 py-2.5 text-center border-l border-orange-800">Expat</th>
                 <th className="px-4 py-2.5 text-center border-l border-orange-800">Keluarga</th>
                 <th className="px-4 py-2.5 text-center border-l border-orange-800">Expiry</th>
+                <th className="px-4 py-2.5 text-center border-l border-orange-800">Sekali Terbit</th>
                 <th className="px-4 py-2.5 text-center border-l border-orange-800">Izin Kerja</th>
                 <th className="px-4 py-2.5 text-center border-l border-orange-800">EPO</th>
                 <th className="px-4 py-2.5 text-center border-l border-orange-800">Urutan</th>
@@ -193,6 +194,11 @@ export default function PermitTypesPage() {
                       : <span className="text-gray-200">—</span>}
                   </td>
                   <td className="px-4 py-3.5 border-l border-gray-100 text-center">
+                    {t.isOneTime
+                      ? <span className="inline-flex items-center justify-center w-5 h-5 bg-gray-100 rounded-full"><Check size={11} className="text-gray-500" /></span>
+                      : <span className="text-gray-200">—</span>}
+                  </td>
+                  <td className="px-4 py-3.5 border-l border-gray-100 text-center">
                     {t.linkedToWorkPermit
                       ? <span className="inline-flex items-center justify-center w-5 h-5 bg-orange-100 rounded-full"><Check size={11} className="text-orange-500" /></span>
                       : <span className="text-gray-200">—</span>}
@@ -226,7 +232,7 @@ export default function PermitTypesPage() {
             </tbody>
             <tfoot>
               <tr className="bg-gray-50 border-t-2 border-gray-200">
-                <td colSpan={10} className="px-4 py-2.5 text-xs text-gray-400 font-medium">
+                <td colSpan={11} className="px-4 py-2.5 text-xs text-gray-400 font-medium">
                   Total: {types.length} jenis izin
                 </td>
               </tr>
@@ -285,6 +291,9 @@ export default function PermitTypesPage() {
                 </div>
                 <div className="px-4 py-3">
                   <Toggle label="Memiliki tanggal kadaluarsa" desc="Jika aktif, field expiry date wajib diisi" checked={form.hasExpiry} onChange={v => setF("hasExpiry", v)} />
+                </div>
+                <div className="px-4 py-3">
+                  <Toggle label="Sekali terbit (tidak perlu perpanjangan)" desc="eVisa, dll — expiry ditampilkan tapi tidak memicu status urgency saat expired" checked={form.isOneTime} onChange={v => setF("isOneTime", v)} />
                 </div>
                 <div className="px-4 py-3">
                   <Toggle label="Masa berlaku mengikuti izin kerja" desc="Pengesahan RPTKA — ditampilkan sebagai nomor saja di tabel" checked={form.linkedToWorkPermit} onChange={v => setF("linkedToWorkPermit", v)} />

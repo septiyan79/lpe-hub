@@ -576,7 +576,7 @@ function listUrgency(expat) {
   const allDates = [
     expat.passportExpiryDate,
     ...(expat.permits ?? [])
-      .filter(p => p.expiryDate && p.permitType?.hasExpiry && !p.permitType?.isEPO)
+      .filter(p => p.expiryDate && p.permitType?.hasExpiry && !p.permitType?.isEPO && !p.permitType?.isOneTime)
       .map(p => p.expiryDate),
   ].filter(Boolean);
   if (!allDates.length) return "none";
@@ -595,7 +595,7 @@ const LIST_URGENCY = {
   none:     { borderL: "border-l-4 border-l-gray-200",   avatarBg: "bg-gray-100",   avatarText: "text-gray-400" },
 };
 
-function PermitPill({ label, date, hasExpiry = true, issuedDate, alwaysShow = false }) {
+function PermitPill({ label, date, hasExpiry = true, isOneTime = false, issuedDate, alwaysShow = false }) {
   let colorCls = "bg-gray-100 text-gray-400";
 
   if (!hasExpiry) {
@@ -603,7 +603,7 @@ function PermitPill({ label, date, hasExpiry = true, issuedDate, alwaysShow = fa
     else if (!alwaysShow) return null;
   } else if (date) {
     const diff = daysLeft(date);
-    if (diff < 0)        colorCls = "bg-red-100 text-red-600";
+    if (diff < 0)        colorCls = isOneTime ? "bg-gray-100 text-gray-400" : "bg-red-100 text-red-600";
     else if (diff <= 30) colorCls = "bg-orange-100 text-orange-600";
     else if (diff <= 90) colorCls = "bg-yellow-100 text-yellow-700";
     else                 colorCls = "bg-green-100 text-green-700";
@@ -623,7 +623,7 @@ function PermitPill({ label, date, hasExpiry = true, issuedDate, alwaysShow = fa
 
 // ─── Table View ───────────────────────────────────────────────────────────────
 
-function ExpiryBadge({ date, hasExpiry = true, issuedDate, number }) {
+function ExpiryBadge({ date, hasExpiry = true, isOneTime = false, issuedDate, number }) {
   const numEl = number
     ? <div className="text-[10px] text-gray-400 mt-0.5 max-w-[100px] truncate" title={number}>{number}</div>
     : null;
@@ -645,15 +645,25 @@ function ExpiryBadge({ date, hasExpiry = true, issuedDate, number }) {
 
   const days = daysLeft(date);
 
-  if (days < 0) return (
-    <div className="leading-tight">
-      <span className="text-[11px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-semibold inline-block">
-        {fmtShort(date)}
-      </span>
-      <div className="text-[10px] text-red-500 mt-0.5 font-medium">{Math.abs(days)}h lalu</div>
-      {numEl}
-    </div>
-  );
+  if (days < 0) {
+    if (isOneTime) return (
+      <div className="leading-tight">
+        <span className="text-[11px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-medium inline-block">
+          {fmtShort(date)}
+        </span>
+        {numEl}
+      </div>
+    );
+    return (
+      <div className="leading-tight">
+        <span className="text-[11px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-semibold inline-block">
+          {fmtShort(date)}
+        </span>
+        <div className="text-[10px] text-red-500 mt-0.5 font-medium">{Math.abs(days)}h lalu</div>
+        {numEl}
+      </div>
+    );
+  }
 
   if (days <= 30) return (
     <div className="leading-tight">
@@ -689,7 +699,7 @@ function rowUrgency(expat) {
   const allDates = [
     expat.passportExpiryDate,
     ...(expat.permits ?? [])
-      .filter(p => p.expiryDate && p.permitType?.hasExpiry && !p.permitType?.isEPO)
+      .filter(p => p.expiryDate && p.permitType?.hasExpiry && !p.permitType?.isEPO && !p.permitType?.isOneTime)
       .map(p => p.expiryDate),
   ].filter(Boolean);
   if (!allDates.length) return "none";
@@ -883,6 +893,7 @@ function TableView({ data, permitTypes, onRowClick }) {
                             ? <ExpiryBadge
                                 date={p.expiryDate}
                                 hasExpiry={p.permitType?.hasExpiry}
+                                isOneTime={p.permitType?.isOneTime}
                                 issuedDate={p.issuedDate}
                                 number={p.number}
                               />
