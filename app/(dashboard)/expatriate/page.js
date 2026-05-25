@@ -230,6 +230,7 @@ export default function ExpatriatePage() {
               if (p.permitType?.linkedToWorkPermit) return false;
               if (izinKerjaPermit && p.id === izinKerjaPermit.id) return false;
               if (!p.permitType?.hasExpiry || !p.expiryDate) return false;
+              if (p.permitType?.isOneTime && daysLeft(p.expiryDate) < 0) return false;
               return daysLeft(p.expiryDate) <= 90;
             });
             const urgency = listUrgency(expat);
