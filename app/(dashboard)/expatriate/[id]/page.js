@@ -33,7 +33,7 @@ function expatUrgency(expat) {
   const allDates = [
     expat.passportExpiryDate,
     ...(expat.permits ?? [])
-      .filter(p => p.expiryDate && p.permitType?.hasExpiry && !p.permitType?.isEPO)
+      .filter(p => p.expiryDate && p.permitType?.hasExpiry && !p.permitType?.isEPO && !p.permitType?.isOneTime)
       .map(p => p.expiryDate),
   ].filter(Boolean);
   if (!allDates.length) return "none";
@@ -48,7 +48,7 @@ function memberUrgency(member) {
   const allDates = [
     member.passportExpiryDate,
     ...(member.permits ?? [])
-      .filter(p => p.expiryDate && p.permitType?.hasExpiry && !p.permitType?.isEPO)
+      .filter(p => p.expiryDate && p.permitType?.hasExpiry && !p.permitType?.isEPO && !p.permitType?.isOneTime)
       .map(p => p.expiryDate),
   ].filter(Boolean);
   if (!allDates.length) return "none";
@@ -246,28 +246,41 @@ function PermitSection({ permits, expatId, familyId, permitTypes, onRefresh }) {
         <p className="text-sm text-gray-400 italic">Belum ada data perizinan</p>
       ) : (
         <div className="space-y-2">
-          {permits.map(p => {
+          {[...permits]
+            .sort((a, b) => (a.permitType?.order ?? 99) - (b.permitType?.order ?? 99))
+            .map(p => {
             const isEPO = p.permitType?.isEPO;
+            const isOneTime = p.permitType?.isOneTime;
             const hasExp = p.permitType?.hasExpiry;
             const days = p.expiryDate ? daysLeft(p.expiryDate) : null;
             const borderColor = isEPO ? "border-l-red-400" :
+              isOneTime ? "border-l-blue-400" :
               days === null ? "border-l-gray-300" :
               days < 0 ? "border-l-red-400" :
               days <= 30 ? "border-l-orange-400" :
               days <= 90 ? "border-l-yellow-400" : "border-l-green-400";
             const bgColor = isEPO ? "bg-red-50/60" :
+              isOneTime ? "bg-blue-50/30" :
               days === null ? "bg-gray-50" :
               days < 0 ? "bg-red-50/60" :
               days <= 30 ? "bg-orange-50/50" :
               days <= 90 ? "bg-yellow-50/40" : "bg-white";
-            const countdownCls = days === null ? "" :
+            const countdownCls = isOneTime ? "bg-blue-100 text-blue-600" :
+              days === null ? "" :
               days < 0 ? "bg-red-100 text-red-700" :
               days <= 30 ? "bg-orange-100 text-orange-700" :
               days <= 90 ? "bg-yellow-100 text-yellow-700" : "bg-green-100 text-green-700";
-            const expiryTextCls = days === null ? "text-gray-600" :
+            const expiryTextCls = isOneTime ? "text-blue-600" :
+              days === null ? "text-gray-600" :
               days < 0 ? "text-red-600 font-semibold" :
               days <= 30 ? "text-orange-600 font-semibold" :
               days <= 90 ? "text-yellow-700 font-semibold" : "text-green-700";
+            const nameBadgeCls = isEPO ? "bg-red-100 text-red-700" :
+              isOneTime ? "bg-blue-100 text-blue-700" :
+              days === null ? "bg-gray-100 text-gray-600" :
+              days < 0 ? "bg-red-100 text-red-700" :
+              days <= 30 ? "bg-orange-100 text-orange-700" :
+              days <= 90 ? "bg-yellow-100 text-yellow-700" : "bg-green-100 text-green-700";
 
             return (
               <div key={p.id}
@@ -275,9 +288,7 @@ function PermitSection({ permits, expatId, familyId, permitTypes, onRefresh }) {
 
                 {/* Type + Number — wider */}
                 <div className="shrink-0 w-60">
-                  <span className={`inline-block text-[11px] font-bold px-2 py-0.5 rounded-md mb-0.5 ${
-                    isEPO ? "bg-red-100 text-red-700" : "bg-orange-100 text-orange-800"
-                  }`}>
+                  <span className={`inline-block text-[11px] font-bold px-2 py-0.5 rounded-md mb-0.5 ${nameBadgeCls}`}>
                     {p.permitType?.name ?? "—"}
                   </span>
                   <p className="text-[11px] font-mono text-gray-400 truncate" title={p.number}>{p.number}</p>
@@ -305,12 +316,10 @@ function PermitSection({ permits, expatId, familyId, permitTypes, onRefresh }) {
                     </span>
                   )}
                   <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition">
-                    {hasExp && (
-                      <button onClick={() => openRenew(p)} title="Perpanjang izin"
-                        className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-500">
-                        <RotateCcw size={12} />
-                      </button>
-                    )}
+                    <button onClick={() => openRenew(p)} title="Perpanjang izin"
+                      className={`p-1.5 rounded-lg hover:bg-blue-50 text-blue-500 ${(!hasExp || isOneTime) ? "invisible pointer-events-none" : ""}`}>
+                      <RotateCcw size={12} />
+                    </button>
                     <button onClick={() => openEdit(p)} className="p-1.5 rounded-lg hover:bg-orange-100 text-orange-600">
                       <Pencil size={12} />
                     </button>
