@@ -41,7 +41,7 @@ function getExportValue(expat, key, i) {
     case "passportExpiryDate":  return expat.passportExpiryDate ? fmtDate(expat.passportExpiryDate) : "";
     case "familyCount":         return expat._count?.families ?? 0;
     case "epo": {
-      const epo = expat.permits?.find(p => p.permitType?.isEPO);
+      const epo = expat.permits?.find(p => p.permitType?.isEPO && p.status !== "replaced");
       return epo ? (epo.expiryDate ? fmtDate(epo.expiryDate) : "Ya") : "";
     }
     default: return "";
@@ -77,7 +77,7 @@ function expiryBadge(date) {
   return "bg-green-100 text-green-700";
 }
 
-const hasEPO = (expat) => expat.permits?.some(p => p.permitType?.isEPO);
+const hasEPO = (expat) => expat.permits?.some(p => p.permitType?.isEPO && p.status !== "replaced");
 const permitByName = (permits, name) => permits?.find(p => p.permitType?.name === name);
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
@@ -464,7 +464,7 @@ function ExportModal({ data, permitTypes, onClose }) {
     const rows = data.map((expat, i) => [
       ...selectedFixed.map(c => getExportValue(expat, c.key, i)),
       ...selectedPermits.flatMap(t => {
-        const p = expat.permits?.find(x => x.permitTypeId === t.id);
+        const p = expat.permits?.find(x => x.permitTypeId === t.id && x.status !== "replaced");
         if (!p) return ["", ""];
         const dateVal = t.hasExpiry
           ? (p.expiryDate ? fmtDate(p.expiryDate) : "")
@@ -828,7 +828,7 @@ function TableView({ data, permitTypes, onRowClick }) {
 
           <tbody className="divide-y divide-gray-100">
             {data.map((expat, i) => {
-              const epoPermit = expat.permits?.find(p => p.permitType?.isEPO);
+              const epoPermit = expat.permits?.find(p => p.permitType?.isEPO && p.status !== "replaced");
               const urgency = rowUrgency(expat);
               const { bg, hover, border, stickyBg, stickyHover } = URGENCY[urgency];
 
@@ -888,7 +888,7 @@ function TableView({ data, permitTypes, onRowClick }) {
 
                   {/* Permit columns — match by permitTypeId */}
                   {permitCols.map((col, idx) => {
-                    const p = expat.permits?.find(x => x.permitTypeId === col.id);
+                    const p = expat.permits?.find(x => x.permitTypeId === col.id && x.status !== "replaced");
                     const isLinkedNonPrimary = col.linkedToWorkPermit && col.id !== mainWorkPermitId;
                     const isNumberOnly = isLinkedNonPrimary || shortPermitName(col.name) === "HPK";
                     return (

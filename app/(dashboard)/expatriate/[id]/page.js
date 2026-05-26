@@ -322,16 +322,18 @@ function PermitSection({ permits, expatId, familyId, permitTypes, onRefresh, per
                   )}
                   {(() => {
                     const historyCount = replacedPermits.filter(r => r.permitTypeId === p.permitTypeId).length;
-                    return historyCount > 0 ? (
+                    return (
                       <button
-                        onClick={() => setArchiveModal({ permitTypeId: p.permitTypeId, name: p.permitType?.name ?? "—" })}
-                        title={`Lihat ${historyCount} riwayat perpanjangan`}
-                        className="flex items-center gap-0.5 px-1.5 py-1 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-500 transition"
+                        onClick={() => historyCount > 0 && setArchiveModal({ permitTypeId: p.permitTypeId, name: p.permitType?.name ?? "—" })}
+                        title={historyCount > 0 ? `Lihat ${historyCount} riwayat perpanjangan` : undefined}
+                        className={`flex items-center gap-0.5 px-1.5 py-1 rounded-lg text-gray-500 transition ${
+                          historyCount > 0 ? "bg-gray-100 hover:bg-gray-200 cursor-pointer" : "invisible pointer-events-none"
+                        }`}
                       >
                         <History size={11} />
                         <span className="text-[10px] font-bold">{historyCount}</span>
                       </button>
-                    ) : null;
+                    );
                   })()}
                   <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition">
                     <button onClick={() => openRenew(p)} title="Perpanjang izin"
@@ -978,9 +980,10 @@ export default function ExpatDetailPage({ params }) {
   const familyCount = expat.families?.length ?? 0;
 
   const izinKerjaPermit = (expat.permits ?? [])
-    .filter(p => p.permitType?.linkedToWorkPermit)
+    .filter(p => p.status !== "replaced" && p.permitType?.linkedToWorkPermit)
     .sort((a, b) => (a.permitType?.order ?? 99) - (b.permitType?.order ?? 99))[0];
   const warningPermits = (expat.permits ?? []).filter(p => {
+    if (p.status === "replaced") return false;
     if (p.permitType?.isEPO) return false;
     if (p.permitType?.linkedToWorkPermit) return false;
     if (izinKerjaPermit && p.id === izinKerjaPermit.id) return false;
