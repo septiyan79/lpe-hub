@@ -4,8 +4,8 @@ import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import {
   Globe, ArrowLeft, Pencil, Trash2, X, Plus,
-  User, FileText, Users, ChevronDown, ChevronUp, Save,
-  Briefcase, CalendarDays, MapPin, RotateCcw,
+  User, FileText, Users, Save,
+  Briefcase, CalendarDays, MapPin, RotateCcw, History,
 } from "lucide-react";
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -33,7 +33,7 @@ function expatUrgency(expat) {
   const allDates = [
     expat.passportExpiryDate,
     ...(expat.permits ?? [])
-      .filter(p => p.expiryDate && p.permitType?.hasExpiry && !p.permitType?.isEPO && !p.permitType?.isOneTime)
+      .filter(p => p.status !== "replaced" && p.expiryDate && p.permitType?.hasExpiry && !p.permitType?.isEPO && !p.permitType?.isOneTime)
       .map(p => p.expiryDate),
   ].filter(Boolean);
   if (!allDates.length) return "none";
@@ -48,7 +48,7 @@ function memberUrgency(member) {
   const allDates = [
     member.passportExpiryDate,
     ...(member.permits ?? [])
-      .filter(p => p.expiryDate && p.permitType?.hasExpiry && !p.permitType?.isEPO && !p.permitType?.isOneTime)
+      .filter(p => p.status !== "replaced" && p.expiryDate && p.permitType?.hasExpiry && !p.permitType?.isEPO && !p.permitType?.isOneTime)
       .map(p => p.expiryDate),
   ].filter(Boolean);
   if (!allDates.length) return "none";
@@ -136,7 +136,7 @@ const EMPTY_FAMILY = {
 
 // ─── Permit Section ───────────────────────────────────────────────────────────
 
-function PermitSection({ permits, expatId, familyId, permitTypes, onRefresh }) {
+function PermitSection({ permits, expatId, familyId, permitTypes, onRefresh, personName }) {
   const [modal, setModal] = useState(null);
   const [form, setForm] = useState(EMPTY_PERMIT);
   const [saving, setSaving] = useState(false);
@@ -147,11 +147,16 @@ function PermitSection({ permits, expatId, familyId, permitTypes, onRefresh }) {
   const [renewSaving, setRenewSaving] = useState(false);
   const [renewError, setRenewError] = useState("");
 
+  const [archiveModal, setArchiveModal] = useState(null); // { permitTypeId, name }
+
   const baseUrl = familyId
     ? `/api/expatriate/${expatId}/family/${familyId}/permits`
     : `/api/expatriate/${expatId}/permits`;
 
-  const availableTypes = permitTypes.filter(t => !permits.some(p => p.permitTypeId === t.id));
+  const activePermits = permits.filter(p => p.status !== "replaced");
+  const replacedPermits = permits.filter(p => p.status === "replaced");
+
+  const availableTypes = permitTypes.filter(t => !activePermits.some(p => p.permitTypeId === t.id));
 
   function openAdd() {
     setForm({ ...EMPTY_PERMIT, permitTypeId: availableTypes[0]?.id || "" });
@@ -211,8 +216,8 @@ function PermitSection({ permits, expatId, familyId, permitTypes, onRefresh }) {
     setRenewSaving(true);
     setRenewError("");
     try {
-      const res = await fetch(`${baseUrl}/${renewModal.id}`, {
-        method: "PATCH",
+      const res = await fetch(`${baseUrl}/${renewModal.id}/renew`, {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(renewForm),
       });
@@ -242,11 +247,11 @@ function PermitSection({ permits, expatId, familyId, permitTypes, onRefresh }) {
         )}
       </div>
 
-      {permits.length === 0 ? (
+      {activePermits.length === 0 && replacedPermits.length === 0 ? (
         <p className="text-sm text-gray-400 italic">Belum ada data perizinan</p>
       ) : (
         <div className="space-y-2">
-          {[...permits]
+          {[...activePermits]
             .sort((a, b) => (a.permitType?.order ?? 99) - (b.permitType?.order ?? 99))
             .map(p => {
             const isEPO = p.permitType?.isEPO;
@@ -286,7 +291,7 @@ function PermitSection({ permits, expatId, familyId, permitTypes, onRefresh }) {
               <div key={p.id}
                 className={`flex items-center gap-3 rounded-xl border border-gray-100 border-l-4 ${borderColor} ${bgColor} px-4 py-2 group`}>
 
-                {/* Type + Number — wider */}
+                {/* Type + Number */}
                 <div className="shrink-0 w-60">
                   <span className={`inline-block text-[11px] font-bold px-2 py-0.5 rounded-md mb-0.5 ${nameBadgeCls}`}>
                     {p.permitType?.name ?? "—"}
@@ -294,7 +299,7 @@ function PermitSection({ permits, expatId, familyId, permitTypes, onRefresh }) {
                   <p className="text-[11px] font-mono text-gray-400 truncate" title={p.number}>{p.number}</p>
                 </div>
 
-                {/* Dates — single compact line */}
+                {/* Dates */}
                 <div className="flex-1 flex items-center gap-2 text-xs text-gray-600 min-w-0">
                   <span className="font-medium whitespace-nowrap">{fmtDate(p.issuedDate)}</span>
                   {p.expiryDate && (
@@ -315,6 +320,19 @@ function PermitSection({ permits, expatId, familyId, permitTypes, onRefresh }) {
                       {days < 0 ? `${Math.abs(days)}h lalu` : `${days}h lagi`}
                     </span>
                   )}
+                  {(() => {
+                    const historyCount = replacedPermits.filter(r => r.permitTypeId === p.permitTypeId).length;
+                    return historyCount > 0 ? (
+                      <button
+                        onClick={() => setArchiveModal({ permitTypeId: p.permitTypeId, name: p.permitType?.name ?? "—" })}
+                        title={`Lihat ${historyCount} riwayat perpanjangan`}
+                        className="flex items-center gap-0.5 px-1.5 py-1 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-500 transition"
+                      >
+                        <History size={11} />
+                        <span className="text-[10px] font-bold">{historyCount}</span>
+                      </button>
+                    ) : null;
+                  })()}
                   <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition">
                     <button onClick={() => openRenew(p)} title="Perpanjang izin"
                       className={`p-1.5 rounded-lg hover:bg-blue-50 text-blue-500 ${(!hasExp || isOneTime) ? "invisible pointer-events-none" : ""}`}>
@@ -333,6 +351,65 @@ function PermitSection({ permits, expatId, familyId, permitTypes, onRefresh }) {
           })}
         </div>
       )}
+
+      {/* ── Modal Riwayat Perpanjangan ── */}
+      {archiveModal && (() => {
+        const items = [...replacedPermits]
+          .filter(r => r.permitTypeId === archiveModal.permitTypeId)
+          .sort((a, b) => new Date(b.issuedDate) - new Date(a.issuedDate));
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-5">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <History size={16} className="text-gray-500" />
+                  <div>
+                    <h3 className="font-bold text-orange-950 leading-tight">Riwayat Perpanjangan</h3>
+                    <p className="text-[11px] text-gray-400 mt-0.5">{archiveModal.name}</p>
+                  </div>
+                </div>
+                <button onClick={() => setArchiveModal(null)}><X size={18} className="text-gray-400" /></button>
+              </div>
+
+              <div className="space-y-2">
+                {items.map(r => (
+                  <div key={r.id} className="flex items-center gap-3 rounded-xl border border-gray-100 border-l-4 border-l-gray-200 bg-gray-50 px-4 py-2.5 group">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[11px] font-mono text-gray-500 truncate" title={r.number}>{r.number}</p>
+                      <div className="flex items-center gap-1.5 text-xs text-gray-400 mt-0.5">
+                        <span>{fmtDate(r.issuedDate)}</span>
+                        {r.expiryDate && (
+                          <>
+                            <span className="text-gray-300">→</span>
+                            <span>{fmtDate(r.expiryDate)}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        if (!confirm(`Hapus riwayat ${r.number}?`)) return;
+                        await fetch(`${baseUrl}/${r.id}`, { method: "DELETE" });
+                        onRefresh();
+                        setArchiveModal(null);
+                      }}
+                      title="Hapus riwayat"
+                      className="p-1.5 rounded-lg hover:bg-red-100 text-red-400 opacity-0 group-hover:opacity-100 transition shrink-0"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <button onClick={() => setArchiveModal(null)}
+                className="mt-4 w-full border border-gray-300 text-gray-600 rounded-lg py-2 text-sm hover:bg-gray-50 transition">
+                Tutup
+              </button>
+            </div>
+          </div>
+        );
+      })()}
 
       {modal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
@@ -413,7 +490,12 @@ function PermitSection({ permits, expatId, familyId, permitTypes, onRefresh }) {
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <RotateCcw size={16} className="text-blue-500" />
-                <h3 className="font-bold text-orange-950">Perpanjang Izin</h3>
+                <div>
+                  <h3 className="font-bold text-orange-950 leading-tight">Perpanjang Izin</h3>
+                  {personName && (
+                    <p className="text-[11px] text-gray-400 mt-0.5">{personName}</p>
+                  )}
+                </div>
               </div>
               <button onClick={() => setRenewModal(null)}><X size={18} className="text-gray-400" /></button>
             </div>
@@ -471,18 +553,12 @@ function PermitSection({ permits, expatId, familyId, permitTypes, onRefresh }) {
   );
 }
 
-// ─── Family Member Card ───────────────────────────────────────────────────────
+// ─── Family Detail Panel ──────────────────────────────────────────────────────
 
-function FamilyCard({ member, expatId, familyPermitTypes, onRefresh, onDelete }) {
-  const [open, setOpen] = useState(false);
+function FamilyDetailPanel({ member, expatId, familyPermitTypes, onRefresh, onDelete }) {
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({});
   const [saving, setSaving] = useState(false);
-
-  const memberHasEPO = member.permits?.some(p => p.permitType?.isEPO);
-  const urgency = memberUrgency(member);
-  const { borderL } = URGENCY_STYLE[urgency];
-  const initials = member.name.trim().split(/\s+/).slice(0, 2).map(w => w[0]).join("").toUpperCase();
 
   function startEdit() {
     setForm({
@@ -513,102 +589,80 @@ function FamilyCard({ member, expatId, familyPermitTypes, onRefresh, onDelete })
   function setF(k, v) { setForm(f => ({ ...f, [k]: v })); }
 
   return (
-    <div className={`border border-gray-200 rounded-xl overflow-hidden ${borderL}`}>
-      <button
-        onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-orange-50/50 transition"
-      >
-        <div className="flex items-center gap-3">
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 font-bold text-xs ${
-            member.gender === "Female" ? "bg-pink-100 text-pink-600" : "bg-blue-100 text-blue-600"
-          }`}>
-            {initials || "?"}
-          </div>
-          <div className="text-left">
-            <p className="text-sm font-semibold text-gray-800">{member.name}</p>
-            <p className="text-xs text-gray-500">{member.familyStatus} · {member.gender}</p>
+    <div className="space-y-5">
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <SectionHeader icon={User} label="Data Pribadi" />
+          <div className="flex gap-2">
+            {editing ? (
+              <>
+                <button onClick={() => setEditing(false)} className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700"><X size={13} /> Batal</button>
+                <button onClick={saveEdit} disabled={saving} className="flex items-center gap-1 text-xs text-orange-700 hover:text-orange-900 font-medium disabled:opacity-60">
+                  <Save size={13} /> {saving ? "..." : "Simpan"}
+                </button>
+              </>
+            ) : (
+              <>
+                <button onClick={startEdit} className="flex items-center gap-1 text-xs text-orange-700 hover:text-orange-900">
+                  <Pencil size={13} /> Edit
+                </button>
+                <button onClick={() => onDelete(member)} className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700">
+                  <Trash2 size={13} /> Hapus
+                </button>
+              </>
+            )}
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          {memberHasEPO && <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full">EPO</span>}
-          {open ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
-        </div>
-      </button>
-
-      {open && (
-        <div className="px-4 py-4 space-y-5">
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <SectionHeader icon={User} label="Data Pribadi" />
-              <div className="flex gap-2">
-                {editing ? (
-                  <>
-                    <button onClick={() => setEditing(false)} className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700"><X size={13} /> Batal</button>
-                    <button onClick={saveEdit} disabled={saving} className="flex items-center gap-1 text-xs text-orange-700 hover:text-orange-900 font-medium disabled:opacity-60">
-                      <Save size={13} /> {saving ? "..." : "Simpan"}
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button onClick={startEdit} className="flex items-center gap-1 text-xs text-orange-700 hover:text-orange-900">
-                      <Pencil size={13} /> Edit
-                    </button>
-                    <button onClick={() => onDelete(member)} className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700">
-                      <Trash2 size={13} /> Hapus
-                    </button>
-                  </>
-                )}
+        <div className="grid grid-cols-2 gap-3 text-sm">
+          {editing ? (
+            <>
+              <Field label="Nama" value={form.name} onChange={v => setF("name", v)} editing />
+              <div>
+                <label className="block text-xs text-gray-500 mb-0.5">Status Keluarga</label>
+                <select value={form.familyStatus} onChange={e => setF("familyStatus", e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400">
+                  {["Wife", "Husband", "Child", "Other"].map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
               </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              {editing ? (
-                <>
-                  <Field label="Nama" value={form.name} onChange={v => setF("name", v)} editing />
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-0.5">Status Keluarga</label>
-                    <select value={form.familyStatus} onChange={e => setF("familyStatus", e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400">
-                      {["Wife", "Husband", "Child", "Other"].map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-0.5">Gender</label>
-                    <select value={form.gender} onChange={e => setF("gender", e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400">
-                      <option>Male</option><option>Female</option>
-                    </select>
-                  </div>
-                  <Field label="Tempat Lahir" value={form.birthPlace} onChange={v => setF("birthPlace", v)} editing />
-                  <Field label="Tanggal Lahir" value={form.birthDate} onChange={v => setF("birthDate", v)} type="date" editing />
-                  <Field label="Arrival Date" value={form.arrivalDate} onChange={v => setF("arrivalDate", v)} type="date" editing />
-                  <Field label="Nomor Passport" value={form.passportNo} onChange={v => setF("passportNo", v)} editing />
-                  <Field label="Passport Issued" value={form.passportIssuedDate} onChange={v => setF("passportIssuedDate", v)} type="date" editing />
-                  <Field label="Passport Expiry" value={form.passportExpiryDate} onChange={v => setF("passportExpiryDate", v)} type="date" editing />
-                </>
-              ) : (
-                <>
-                  <Field label="Status Keluarga" value={member.familyStatus} />
-                  <Field label="Gender" value={member.gender} />
-                  <Field label="Tempat Lahir" value={member.birthPlace} />
-                  <Field label="Tanggal Lahir" value={fmtDate(member.birthDate)} />
-                  <Field label="Arrival Date" value={fmtDate(member.arrivalDate)} />
-                  <Field label="Nomor Passport" value={member.passportNo} />
-                  <Field label="Passport Issued" value={fmtDate(member.passportIssuedDate)} />
-                  <Field label="Passport Expiry" value={fmtDate(member.passportExpiryDate)} />
-                </>
-              )}
-            </div>
-          </div>
-
-          <PermitSection
-            permits={member.permits ?? []}
-            expatId={expatId}
-            familyId={member.id}
-            permitTypes={familyPermitTypes}
-            onRefresh={onRefresh}
-          />
+              <div>
+                <label className="block text-xs text-gray-500 mb-0.5">Gender</label>
+                <select value={form.gender} onChange={e => setF("gender", e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400">
+                  <option>Male</option><option>Female</option>
+                </select>
+              </div>
+              <Field label="Tempat Lahir" value={form.birthPlace} onChange={v => setF("birthPlace", v)} editing />
+              <Field label="Tanggal Lahir" value={form.birthDate} onChange={v => setF("birthDate", v)} type="date" editing />
+              <Field label="Arrival Date" value={form.arrivalDate} onChange={v => setF("arrivalDate", v)} type="date" editing />
+              <Field label="Nomor Passport" value={form.passportNo} onChange={v => setF("passportNo", v)} editing />
+              <Field label="Passport Issued" value={form.passportIssuedDate} onChange={v => setF("passportIssuedDate", v)} type="date" editing />
+              <Field label="Passport Expiry" value={form.passportExpiryDate} onChange={v => setF("passportExpiryDate", v)} type="date" editing />
+            </>
+          ) : (
+            <>
+              <Field label="Status Keluarga" value={member.familyStatus} />
+              <Field label="Gender" value={member.gender} />
+              <Field label="Tempat Lahir" value={member.birthPlace} />
+              <Field label="Tanggal Lahir" value={fmtDate(member.birthDate)} />
+              <Field label="Arrival Date" value={fmtDate(member.arrivalDate)} />
+              <Field label="Nomor Passport" value={member.passportNo} />
+              <Field label="Passport Issued" value={fmtDate(member.passportIssuedDate)} />
+              <Field label="Passport Expiry" value={fmtDate(member.passportExpiryDate)} />
+            </>
+          )}
         </div>
-      )}
+      </div>
+
+      <div className="pt-4 border-t">
+        <PermitSection
+          permits={member.permits ?? []}
+          expatId={expatId}
+          familyId={member.id}
+          permitTypes={familyPermitTypes}
+          onRefresh={onRefresh}
+          personName={member.name}
+        />
+      </div>
     </div>
   );
 }
@@ -616,10 +670,22 @@ function FamilyCard({ member, expatId, familyPermitTypes, onRefresh, onDelete })
 // ─── Family Section ───────────────────────────────────────────────────────────
 
 function FamilySection({ families, expatId, familyPermitTypes, onRefresh }) {
-  const [modal, setModal] = useState(false);
+  const [selectedId, setSelectedId] = useState(families[0]?.id ?? null);
+  const [addModal, setAddModal] = useState(false);
   const [form, setForm] = useState(EMPTY_FAMILY);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (selectedId && !families.some(f => f.id === selectedId)) {
+      setSelectedId(families[0]?.id ?? null);
+    }
+    if (!selectedId && families.length > 0) {
+      setSelectedId(families[0].id);
+    }
+  }, [families]);
+
+  const selectedMember = families.find(f => f.id === selectedId);
 
   function setF(k, v) { setForm(f => ({ ...f, [k]: v })); }
 
@@ -635,8 +701,9 @@ function FamilySection({ families, expatId, familyPermitTypes, onRefresh }) {
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error || "Gagal menyimpan"); return; }
-      setModal(false);
+      setAddModal(false);
       onRefresh();
+      if (data.id) setSelectedId(data.id);
     } finally {
       setSaving(false);
     }
@@ -648,44 +715,115 @@ function FamilySection({ families, expatId, familyPermitTypes, onRefresh }) {
     onRefresh();
   }
 
+  const URGENCY_DOT = {
+    expired: "bg-red-400", critical: "bg-orange-400",
+    warning: "bg-yellow-400", ok: "bg-green-400", none: "",
+  };
+
   return (
-    <div>
-      <div className="flex items-center justify-between mb-3">
-        <div className="inline-flex items-center gap-2 bg-orange-950 text-orange-200 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest">
-          <Users size={11} />
-          Keluarga
-          {families.length > 0 && (
-            <span className="bg-orange-800 text-orange-200 px-1.5 py-0.5 rounded-full text-[9px]">{families.length}</span>
+    <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+      <div className="flex" style={{ minHeight: 420 }}>
+
+        {/* ── Kiri: list keluarga ── */}
+        <div className="w-56 shrink-0 border-r border-gray-100 flex flex-col">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50/60">
+            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+              Keluarga {families.length > 0 && `(${families.length})`}
+            </span>
+            <button onClick={() => { setForm(EMPTY_FAMILY); setError(""); setAddModal(true); }}
+              title="Tambah keluarga"
+              className="p-1 rounded-lg hover:bg-orange-50 text-orange-600 transition">
+              <Plus size={14} />
+            </button>
+          </div>
+
+          {families.length === 0 ? (
+            <div className="flex-1 flex flex-col items-center justify-center py-10 px-4 text-center">
+              <Users size={28} className="text-gray-200 mb-2" />
+              <p className="text-xs text-gray-400">Belum ada anggota keluarga</p>
+            </div>
+          ) : (
+            <div className="flex-1 overflow-y-auto divide-y divide-gray-50">
+              {families.map(m => {
+                const urgency = memberUrgency(m);
+                const dotCls = URGENCY_DOT[urgency];
+                const hasEPO = m.permits?.some(p => p.permitType?.isEPO);
+                const initials = m.name.trim().split(/\s+/).slice(0, 2).map(w => w[0]).join("").toUpperCase();
+                const isSelected = selectedId === m.id;
+                return (
+                  <button key={m.id} onClick={() => setSelectedId(m.id)}
+                    className={`w-full flex items-center gap-3 px-4 py-3 text-left border-l-4 transition ${
+                      isSelected ? "bg-orange-50 border-l-orange-400" : "border-l-transparent hover:bg-gray-50"
+                    }`}>
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 font-bold text-xs ${
+                      m.gender === "Female" ? "bg-pink-100 text-pink-600" : "bg-blue-100 text-blue-600"
+                    }`}>
+                      {initials || "?"}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <p className={`text-sm font-medium truncate ${isSelected ? "text-orange-900" : "text-gray-800"}`}>
+                          {m.name}
+                        </p>
+                        {hasEPO && (
+                          <span className="text-[9px] font-bold bg-red-100 text-red-600 px-1 py-0.5 rounded shrink-0">EPO</span>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-400">{m.familyStatus}</p>
+                    </div>
+                    {dotCls && <span className={`w-2 h-2 rounded-full shrink-0 ${dotCls}`} />}
+                  </button>
+                );
+              })}
+            </div>
           )}
         </div>
-        <button onClick={() => { setForm(EMPTY_FAMILY); setError(""); setModal(true); }}
-          className="flex items-center gap-1.5 text-sm text-orange-700 hover:text-orange-900 font-medium">
-          <Plus size={14} /> Tambah
-        </button>
-      </div>
 
-      {families.length === 0
-        ? <p className="text-sm text-gray-400 italic">Belum ada data keluarga</p>
-        : <div className="space-y-2">
-            {families.map(m => (
-              <FamilyCard
-                key={m.id}
-                member={m}
+        {/* ── Kanan: detail panel ── */}
+        <div className="flex-1 min-w-0 p-5 overflow-y-auto">
+          {!selectedMember ? (
+            <div className="flex flex-col items-center justify-center h-full py-16 text-center text-gray-400">
+              <Users size={36} className="text-gray-200 mb-3" />
+              <p className="text-sm">Pilih anggota keluarga untuk melihat detail</p>
+            </div>
+          ) : (
+            <>
+              {/* Header nama anggota */}
+              <div className="flex items-center gap-3 mb-5 pb-4 border-b border-gray-100">
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 font-bold text-sm ${
+                  selectedMember.gender === "Female" ? "bg-pink-100 text-pink-600" : "bg-blue-100 text-blue-600"
+                }`}>
+                  {selectedMember.name.trim().split(/\s+/).slice(0, 2).map(w => w[0]).join("").toUpperCase() || "?"}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-gray-900 text-base leading-tight">{selectedMember.name}</h3>
+                    {selectedMember.permits?.some(p => p.permitType?.isEPO) && (
+                      <span className="text-[10px] font-bold bg-red-100 text-red-600 px-1.5 py-0.5 rounded">EPO</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-400 mt-0.5">{selectedMember.familyStatus} · {selectedMember.gender}</p>
+                </div>
+              </div>
+              <FamilyDetailPanel
+                key={selectedMember.id}
+                member={selectedMember}
                 expatId={expatId}
                 familyPermitTypes={familyPermitTypes}
                 onRefresh={onRefresh}
                 onDelete={handleDelete}
               />
-            ))}
-          </div>
-      }
+            </>
+          )}
+        </div>
+      </div>
 
-      {modal && (
+      {addModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6 overflow-y-auto">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 my-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-bold text-orange-950">Tambah Anggota Keluarga</h3>
-              <button onClick={() => setModal(false)}><X size={18} className="text-gray-400" /></button>
+              <button onClick={() => setAddModal(false)}><X size={18} className="text-gray-400" /></button>
             </div>
             <form onSubmit={handleAdd} className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
@@ -745,7 +883,7 @@ function FamilySection({ families, expatId, familyPermitTypes, onRefresh }) {
               </div>
               {error && <p className="text-sm text-red-500">{error}</p>}
               <div className="flex gap-3 pt-1">
-                <button type="button" onClick={() => setModal(false)}
+                <button type="button" onClick={() => setAddModal(false)}
                   className="flex-1 border border-gray-300 text-gray-700 rounded-lg py-2 text-sm hover:bg-gray-50 transition">Batal</button>
                 <button type="submit" disabled={saving}
                   className="flex-1 bg-orange-700 hover:bg-orange-800 text-white rounded-lg py-2 text-sm transition disabled:opacity-60">
@@ -772,6 +910,7 @@ export default function ExpatDetailPage({ params }) {
   const [form, setForm] = useState({});
   const [saving, setSaving] = useState(false);
   const [delConfirm, setDelConfirm] = useState(false);
+  const [tab, setTab] = useState("data");
 
   async function fetchData() {
     const [expatRes, typesRes] = await Promise.all([
@@ -965,89 +1104,100 @@ export default function ExpatDetailPage({ params }) {
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-6">
-          {/* Left col: personal info + permits */}
-          <div className="col-span-2 space-y-6">
-            {/* Personal Info */}
-            <div className="bg-white border border-gray-200 rounded-xl p-5">
-              <SectionHeader icon={User} label="Data Pribadi" />
-              <div className="grid grid-cols-2 gap-4">
-                <Field label="Nama Lengkap" value={editing ? form.name : expat.name} onChange={v => setF("name", v)} editing={editing} />
-                <Field label="Gender" value={editing ? form.gender : expat.gender} onChange={v => setF("gender", v)} editing={editing} />
-                <Field label="Tempat Lahir" value={editing ? form.birthPlace : expat.birthPlace} onChange={v => setF("birthPlace", v)} editing={editing} />
-                <Field label="Tanggal Lahir" value={editing ? form.birthDate : fmtDate(expat.birthDate)} onChange={v => setF("birthDate", v)} type="date" editing={editing} />
-                <Field label="Jabatan" value={editing ? form.position : expat.position} onChange={v => setF("position", v)} editing={editing} />
-                <Field label="Department" value={editing ? form.department : expat.department} onChange={v => setF("department", v)} editing={editing} />
-                <Field label="Arrival Date" value={editing ? form.arrivalDate : fmtDate(expat.arrivalDate)} onChange={v => setF("arrivalDate", v)} type="date" editing={editing} />
-                <div>
-                  {editing ? (
-                    <>
-                      <label className="block text-xs text-gray-500 mb-0.5">Perpanjangan ke- <span className="text-gray-400">(kosongkan jika pertama)</span></label>
-                      <input
-                        type="number" min="1"
-                        value={form.renewalNo}
-                        onChange={e => setF("renewalNo", e.target.value)}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
-                      />
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-xs text-gray-400 mb-0.5">Perpanjangan ke-</p>
-                      <p className="text-sm text-gray-800 font-medium">
-                        {expat.renewalNo != null ? expat.renewalNo : <span className="text-gray-400 italic">Pertama</span>}
-                      </p>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              <div className="mt-5 pt-4 border-t">
-                <SectionHeader icon={FileText} label="Passport" />
-                <div className="grid grid-cols-3 gap-4">
-                  <Field label="Nomor Passport" value={editing ? form.passportNo : expat.passportNo} onChange={v => setF("passportNo", v)} editing={editing} />
-                  <Field label="Issued Date" value={editing ? form.passportIssuedDate : fmtDate(expat.passportIssuedDate)} onChange={v => setF("passportIssuedDate", v)} type="date" editing={editing} />
-                  <Field label="Expiry Date" value={editing ? form.passportExpiryDate : fmtDate(expat.passportExpiryDate)} onChange={v => setF("passportExpiryDate", v)} type="date" editing={editing} />
-                </div>
-              </div>
-
-              <div className="mt-5 pt-4 border-t">
-                <SectionHeader icon={MapPin} label="Alamat" />
-                <div className="grid grid-cols-1 gap-4">
-                  <Field label="Present Address" value={editing ? form.presentAddress : expat.presentAddress} onChange={v => setF("presentAddress", v)} editing={editing} textarea />
-                  <Field label="Permanent Address" value={editing ? form.permanentAddress : expat.permanentAddress} onChange={v => setF("permanentAddress", v)} editing={editing} textarea />
-                </div>
-              </div>
-            </div>
-
-            {/* Permits */}
-            <div className="bg-white border border-gray-200 rounded-xl p-5">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="inline-flex items-center gap-2 bg-orange-950 text-orange-200 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest">
-                  <Globe size={11} />
-                  Perizinan Expatriate
-                </div>
-              </div>
-              <PermitSection
-                permits={expat.permits ?? []}
-                expatId={id}
-                permitTypes={expatPermitTypes}
-                onRefresh={fetchData}
-              />
-            </div>
-          </div>
-
-          {/* Right col: family */}
-          <div className="col-span-1">
-            <div className="bg-white border border-gray-200 rounded-xl p-5">
-              <FamilySection
-                families={expat.families ?? []}
-                expatId={id}
-                familyPermitTypes={familyPermitTypes}
-                onRefresh={fetchData}
-              />
-            </div>
-          </div>
+        {/* ── Tabs ── */}
+        <div className="flex border-b border-gray-200 mb-5 bg-white rounded-t-xl shadow-sm overflow-hidden">
+          {[
+            { key: "data",    label: "Data Pribadi",         icon: User  },
+            { key: "permits", label: "Perizinan Expatriate", icon: Globe },
+            { key: "family",  label: "Keluarga",             icon: Users, count: familyCount },
+          ].map(t => (
+            <button key={t.key} onClick={() => setTab(t.key)}
+              className={`flex items-center gap-2 px-6 py-3.5 text-sm font-medium border-b-2 transition-colors ${
+                tab === t.key
+                  ? "border-orange-600 text-orange-700"
+                  : "border-transparent text-gray-500 hover:text-gray-700"
+              }`}>
+              <t.icon size={15} />
+              {t.label}
+              {t.count > 0 && (
+                <span className="ml-0.5 text-[10px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded-full font-bold">
+                  {t.count}
+                </span>
+              )}
+            </button>
+          ))}
         </div>
+
+        {/* ── Tab: Data Pribadi ── */}
+        {tab === "data" && (
+          <div className="bg-white border border-gray-200 rounded-xl p-5">
+            <SectionHeader icon={User} label="Data Pribadi" />
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Nama Lengkap" value={editing ? form.name : expat.name} onChange={v => setF("name", v)} editing={editing} />
+              <Field label="Gender" value={editing ? form.gender : expat.gender} onChange={v => setF("gender", v)} editing={editing} />
+              <Field label="Tempat Lahir" value={editing ? form.birthPlace : expat.birthPlace} onChange={v => setF("birthPlace", v)} editing={editing} />
+              <Field label="Tanggal Lahir" value={editing ? form.birthDate : fmtDate(expat.birthDate)} onChange={v => setF("birthDate", v)} type="date" editing={editing} />
+              <Field label="Jabatan" value={editing ? form.position : expat.position} onChange={v => setF("position", v)} editing={editing} />
+              <Field label="Department" value={editing ? form.department : expat.department} onChange={v => setF("department", v)} editing={editing} />
+              <Field label="Arrival Date" value={editing ? form.arrivalDate : fmtDate(expat.arrivalDate)} onChange={v => setF("arrivalDate", v)} type="date" editing={editing} />
+              <div>
+                {editing ? (
+                  <>
+                    <label className="block text-xs text-gray-500 mb-0.5">Perpanjangan ke- <span className="text-gray-400">(kosongkan jika pertama)</span></label>
+                    <input type="number" min="1" value={form.renewalNo} onChange={e => setF("renewalNo", e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400" />
+                  </>
+                ) : (
+                  <>
+                    <p className="text-xs text-gray-400 mb-0.5">Perpanjangan ke-</p>
+                    <p className="text-sm text-gray-800 font-medium">
+                      {expat.renewalNo != null ? expat.renewalNo : <span className="text-gray-400 italic">Pertama</span>}
+                    </p>
+                  </>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-5 pt-4 border-t">
+              <SectionHeader icon={FileText} label="Passport" />
+              <div className="grid grid-cols-3 gap-4">
+                <Field label="Nomor Passport" value={editing ? form.passportNo : expat.passportNo} onChange={v => setF("passportNo", v)} editing={editing} />
+                <Field label="Issued Date" value={editing ? form.passportIssuedDate : fmtDate(expat.passportIssuedDate)} onChange={v => setF("passportIssuedDate", v)} type="date" editing={editing} />
+                <Field label="Expiry Date" value={editing ? form.passportExpiryDate : fmtDate(expat.passportExpiryDate)} onChange={v => setF("passportExpiryDate", v)} type="date" editing={editing} />
+              </div>
+            </div>
+
+            <div className="mt-5 pt-4 border-t">
+              <SectionHeader icon={MapPin} label="Alamat" />
+              <div className="grid grid-cols-1 gap-4">
+                <Field label="Present Address" value={editing ? form.presentAddress : expat.presentAddress} onChange={v => setF("presentAddress", v)} editing={editing} textarea />
+                <Field label="Permanent Address" value={editing ? form.permanentAddress : expat.permanentAddress} onChange={v => setF("permanentAddress", v)} editing={editing} textarea />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Tab: Perizinan Expatriate ── */}
+        {tab === "permits" && (
+          <div className="bg-white border border-gray-200 rounded-xl p-5">
+            <PermitSection
+              permits={expat.permits ?? []}
+              expatId={id}
+              permitTypes={expatPermitTypes}
+              onRefresh={fetchData}
+            />
+          </div>
+        )}
+
+        {/* ── Tab: Keluarga ── */}
+        {tab === "family" && (
+          <FamilySection
+            families={expat.families ?? []}
+            expatId={id}
+            familyPermitTypes={familyPermitTypes}
+            onRefresh={fetchData}
+          />
+        )}
 
         {/* Delete confirm modal */}
         {delConfirm && (
