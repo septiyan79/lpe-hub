@@ -222,10 +222,11 @@ export default function ExpatriatePage() {
           {filtered.map((expat, i) => {
             // Izin kerja: permit dengan linkedToWorkPermit=true, urutan terkecil (Pengesahan RPTKA)
             const izinKerjaPermit = (expat.permits ?? [])
-              .filter(p => p.permitType?.linkedToWorkPermit)
+              .filter(p => p.status !== "replaced" && p.permitType?.linkedToWorkPermit)
               .sort((a, b) => (a.permitType?.order ?? 99) - (b.permitType?.order ?? 99))[0];
             // Extra warning badges: independent permits (not linked, not EPO) expiring ≤ 90 hari
             const warningPermits = (expat.permits ?? []).filter(p => {
+              if (p.status === "replaced") return false;
               if (p.permitType?.isEPO) return false;
               if (p.permitType?.linkedToWorkPermit) return false;
               if (izinKerjaPermit && p.id === izinKerjaPermit.id) return false;
@@ -234,14 +235,14 @@ export default function ExpatriatePage() {
               return daysLeft(p.expiryDate) <= 90;
             });
             const urgency = listUrgency(expat);
-            const { borderL, avatarBg, avatarText } = LIST_URGENCY[urgency];
+            const { borderL, avatarBg, avatarText, hoverBorder } = LIST_URGENCY[urgency];
             const initials = expat.name.trim().split(/\s+/).slice(0, 2).map(w => w[0]).join("").toUpperCase();
             const familyCount = expat._count?.families ?? 0;
             const epo = hasEPO(expat);
 
             return (
               <button key={expat.id} onClick={() => router.push(`/expatriate/${expat.id}`)}
-                className={`w-full text-left bg-white border border-gray-200 ${borderL} rounded-xl overflow-hidden hover:shadow-md hover:border-orange-300 transition-all duration-200 group`}>
+                className={`w-full text-left bg-white border border-gray-200 ${borderL} rounded-xl overflow-hidden hover:shadow-md ${hoverBorder} transition-all duration-200 group`}>
                 <div className="flex items-stretch">
 
                   {/* Avatar */}
@@ -582,7 +583,7 @@ function listUrgency(expat) {
   const allDates = [
     expat.passportExpiryDate,
     ...(expat.permits ?? [])
-      .filter(p => p.expiryDate && p.permitType?.hasExpiry && !p.permitType?.isEPO && !p.permitType?.isOneTime)
+      .filter(p => p.status !== "replaced" && p.expiryDate && p.permitType?.hasExpiry && !p.permitType?.isEPO && !p.permitType?.isOneTime)
       .map(p => p.expiryDate),
   ].filter(Boolean);
   if (!allDates.length) return "none";
@@ -594,11 +595,11 @@ function listUrgency(expat) {
 }
 
 const LIST_URGENCY = {
-  expired:  { borderL: "border-l-4 border-l-red-300",    avatarBg: "bg-red-100",    avatarText: "text-red-500" },
-  critical: { borderL: "border-l-4 border-l-orange-300", avatarBg: "bg-orange-100", avatarText: "text-orange-500" },
-  warning:  { borderL: "border-l-4 border-l-yellow-300", avatarBg: "bg-yellow-100", avatarText: "text-yellow-600" },
-  ok:       { borderL: "border-l-4 border-l-green-300",  avatarBg: "bg-green-100",  avatarText: "text-green-600" },
-  none:     { borderL: "border-l-4 border-l-gray-200",   avatarBg: "bg-gray-100",   avatarText: "text-gray-400" },
+  expired:  { borderL: "border-l-4 border-l-red-300",    avatarBg: "bg-red-100",    avatarText: "text-red-500",    hoverBorder: "hover:border-red-400"    },
+  critical: { borderL: "border-l-4 border-l-orange-300", avatarBg: "bg-orange-100", avatarText: "text-orange-500", hoverBorder: "hover:border-orange-400" },
+  warning:  { borderL: "border-l-4 border-l-yellow-300", avatarBg: "bg-yellow-100", avatarText: "text-yellow-600", hoverBorder: "hover:border-yellow-400" },
+  ok:       { borderL: "border-l-4 border-l-green-300",  avatarBg: "bg-green-100",  avatarText: "text-green-600",  hoverBorder: "hover:border-green-400"  },
+  none:     { borderL: "border-l-4 border-l-gray-200",   avatarBg: "bg-gray-100",   avatarText: "text-gray-400",   hoverBorder: "hover:border-gray-300"   },
 };
 
 function PermitPill({ label, date, hasExpiry = true, isOneTime = false, issuedDate, alwaysShow = false }) {
@@ -707,7 +708,7 @@ function rowUrgency(expat) {
   const allDates = [
     expat.passportExpiryDate,
     ...(expat.permits ?? [])
-      .filter(p => p.expiryDate && p.permitType?.hasExpiry && !p.permitType?.isEPO && !p.permitType?.isOneTime)
+      .filter(p => p.status !== "replaced" && p.expiryDate && p.permitType?.hasExpiry && !p.permitType?.isEPO && !p.permitType?.isOneTime)
       .map(p => p.expiryDate),
   ].filter(Boolean);
   if (!allDates.length) return "none";

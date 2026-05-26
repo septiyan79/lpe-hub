@@ -120,6 +120,8 @@ model ExpatPermit {
   number         String
   issuedDate     DateTime
   expiryDate     DateTime?
+  status         String    @default("active")
+  renewedFromId  String?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
@@ -150,14 +152,16 @@ model ExpatFamily {
 }
 
 model FamilyPermit {
-  id           String    @id @default(cuid())
-  familyId     String
-  permitTypeId String
-  number       String
-  issuedDate   DateTime
-  expiryDate   DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id            String    @id @default(cuid())
+  familyId      String
+  permitTypeId  String
+  number        String
+  issuedDate    DateTime
+  expiryDate    DateTime?
+  status        String    @default("active")
+  renewedFromId String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   family     ExpatFamily          @relation(fields: [familyId], references: [id], onDelete: Cascade)
   permitType PermitType           @relation(fields: [permitTypeId], references: [id])
