@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
+import { useState, useEffect, use, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   Globe, ArrowLeft, Pencil, Trash2, X, Plus,
   User, FileText, Users, Save,
   Briefcase, CalendarDays, MapPin, RotateCcw, History,
+  ImageIcon, Paperclip, Upload,
 } from "lucide-react";
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -133,6 +134,104 @@ const EMPTY_FAMILY = {
   passportNo: "", passportIssuedDate: "", passportExpiryDate: "",
   familyStatus: "Wife", arrivalDate: "",
 };
+
+// ─── File Upload Slot ─────────────────────────────────────────────────────────
+
+function FileUploadSlot({ label, url, accept, uploadUrl, onUploaded, onDeleted, compact = false }) {
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState("");
+  const inputRef = useRef(null);
+  const isImage = accept.includes("image");
+
+  async function handleFile(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setError("");
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch(uploadUrl, { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error || "Gagal upload"); return; }
+      onUploaded(isImage ? data.photoUrl : (data.passportScanUrl ?? data.scanUrl));
+    } catch {
+      setError("Gagal upload");
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
+  }
+
+  async function handleDelete() {
+    if (!confirm("Hapus file ini?")) return;
+    const res = await fetch(uploadUrl, { method: "DELETE" });
+    if (res.ok) onDeleted();
+  }
+
+  if (compact) {
+    return (
+      <div className="flex items-center gap-0.5">
+        <input ref={inputRef} type="file" accept={accept} className="hidden" onChange={handleFile} />
+        {url ? (
+          <>
+            <a href={url} target="_blank" title="Lihat scan"
+              className="p-1.5 rounded-lg text-green-600 hover:bg-green-50 transition" rel="noreferrer">
+              <Paperclip size={12} />
+            </a>
+            <button onClick={handleDelete} title="Hapus scan"
+              className="p-1.5 rounded-lg text-red-400 hover:bg-red-50 transition">
+              <X size={11} />
+            </button>
+          </>
+        ) : (
+          <button onClick={() => inputRef.current?.click()} disabled={uploading}
+            title={`Upload scan (PDF)`}
+            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition disabled:opacity-50">
+            {uploading ? <span className="text-[9px]">...</span> : <Upload size={12} />}
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <input ref={inputRef} type="file" accept={accept} className="hidden" onChange={handleFile} />
+      {url ? (
+        <div className="flex flex-col gap-1.5">
+          {isImage ? (
+            <a href={url} target="_blank" rel="noreferrer">
+              <img src={url} alt={label} className="w-24 h-28 object-cover rounded-lg border border-gray-200 hover:opacity-90 transition" />
+            </a>
+          ) : (
+            <a href={url} target="_blank" rel="noreferrer"
+              className="inline-flex items-center gap-1.5 text-xs text-blue-600 hover:underline">
+              <Paperclip size={13} />
+              Lihat PDF
+            </a>
+          )}
+          <div className="flex gap-2">
+            <button onClick={() => inputRef.current?.click()} disabled={uploading}
+              className="text-xs text-gray-500 hover:text-gray-700 underline disabled:opacity-50">
+              {uploading ? "Mengupload..." : "Ganti"}
+            </button>
+            <button onClick={handleDelete} className="text-xs text-red-500 hover:text-red-700">Hapus</button>
+          </div>
+        </div>
+      ) : (
+        <button onClick={() => inputRef.current?.click()} disabled={uploading}
+          className="flex flex-col items-center justify-center gap-1.5 w-full border-2 border-dashed border-gray-200 rounded-xl py-4 text-gray-400 hover:border-orange-300 hover:text-orange-400 transition disabled:opacity-50">
+          {uploading
+            ? <span className="text-xs">Mengupload...</span>
+            : <><Upload size={18} /><span className="text-xs">Upload {label}</span></>
+          }
+        </button>
+      )}
+      {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+    </div>
+  );
+}
 
 // ─── Permit Section ───────────────────────────────────────────────────────────
 
@@ -320,6 +419,15 @@ function PermitSection({ permits, expatId, familyId, permitTypes, onRefresh, per
                       {days < 0 ? `${Math.abs(days)}h lalu` : `${days}h lagi`}
                     </span>
                   )}
+                  <FileUploadSlot
+                    compact
+                    label="Scan"
+                    url={p.scanUrl}
+                    accept="application/pdf"
+                    uploadUrl={`${baseUrl}/${p.id}/scan`}
+                    onUploaded={() => onRefresh()}
+                    onDeleted={() => onRefresh()}
+                  />
                   {(() => {
                     const historyCount = replacedPermits.filter(r => r.permitTypeId === p.permitTypeId).length;
                     return (
@@ -388,6 +496,12 @@ function PermitSection({ permits, expatId, familyId, permitTypes, onRefresh, per
                         )}
                       </div>
                     </div>
+                    {r.scanUrl && (
+                      <a href={r.scanUrl} target="_blank" rel="noreferrer"
+                        className="flex items-center gap-1 text-[11px] text-blue-500 hover:underline shrink-0">
+                        <Paperclip size={11} /> Scan
+                      </a>
+                    )}
                     <button
                       onClick={async () => {
                         if (!confirm(`Hapus riwayat ${r.number}?`)) return;
@@ -652,6 +766,34 @@ function FamilyDetailPanel({ member, expatId, familyPermitTypes, onRefresh, onDe
               <Field label="Passport Expiry" value={fmtDate(member.passportExpiryDate)} />
             </>
           )}
+        </div>
+      </div>
+
+      <div className="pt-3 border-t">
+        <SectionHeader icon={ImageIcon} label="Dokumen" />
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <p className="text-xs text-gray-500 mb-2">Pas Foto</p>
+            <FileUploadSlot
+              label="Pas Foto"
+              url={member.photoUrl}
+              accept="image/jpeg,image/png"
+              uploadUrl={`/api/expatriate/${expatId}/family/${member.id}/photo`}
+              onUploaded={() => onRefresh()}
+              onDeleted={() => onRefresh()}
+            />
+          </div>
+          <div>
+            <p className="text-xs text-gray-500 mb-2">Scan Paspor</p>
+            <FileUploadSlot
+              label="Scan Paspor"
+              url={member.passportScanUrl}
+              accept="application/pdf"
+              uploadUrl={`/api/expatriate/${expatId}/family/${member.id}/passport-scan`}
+              onUploaded={() => onRefresh()}
+              onDeleted={() => onRefresh()}
+            />
+          </div>
         </div>
       </div>
 
@@ -1167,6 +1309,34 @@ export default function ExpatDetailPage({ params }) {
                 <Field label="Nomor Passport" value={editing ? form.passportNo : expat.passportNo} onChange={v => setF("passportNo", v)} editing={editing} />
                 <Field label="Issued Date" value={editing ? form.passportIssuedDate : fmtDate(expat.passportIssuedDate)} onChange={v => setF("passportIssuedDate", v)} type="date" editing={editing} />
                 <Field label="Expiry Date" value={editing ? form.passportExpiryDate : fmtDate(expat.passportExpiryDate)} onChange={v => setF("passportExpiryDate", v)} type="date" editing={editing} />
+              </div>
+            </div>
+
+            <div className="mt-5 pt-4 border-t">
+              <SectionHeader icon={ImageIcon} label="Dokumen" />
+              <div className="grid grid-cols-2 gap-5">
+                <div>
+                  <p className="text-xs text-gray-500 mb-2">Pas Foto</p>
+                  <FileUploadSlot
+                    label="Pas Foto"
+                    url={expat.photoUrl}
+                    accept="image/jpeg,image/png"
+                    uploadUrl={`/api/expatriate/${id}/photo`}
+                    onUploaded={(url) => setExpat(e => ({ ...e, photoUrl: url }))}
+                    onDeleted={() => setExpat(e => ({ ...e, photoUrl: null }))}
+                  />
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 mb-2">Scan Paspor</p>
+                  <FileUploadSlot
+                    label="Scan Paspor"
+                    url={expat.passportScanUrl}
+                    accept="application/pdf"
+                    uploadUrl={`/api/expatriate/${id}/passport-scan`}
+                    onUploaded={(url) => setExpat(e => ({ ...e, passportScanUrl: url }))}
+                    onDeleted={() => setExpat(e => ({ ...e, passportScanUrl: null }))}
+                  />
+                </div>
               </div>
             </div>
 

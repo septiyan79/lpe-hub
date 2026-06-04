@@ -105,6 +105,8 @@ model Expatriate {
   permanentAddress   String   @db.NVarChar(Max)
   arrivalDate        DateTime
   renewalNo          Int?
+  photoUrl           String?  @db.NVarChar(500)
+  passportScanUrl    String?  @db.NVarChar(500)
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
@@ -122,6 +124,7 @@ model ExpatPermit {
   expiryDate     DateTime?
   status         String    @default("active")
   renewedFromId  String?
+  scanUrl        String?   @db.NVarChar(500)
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
@@ -143,6 +146,8 @@ model ExpatFamily {
   passportExpiryDate DateTime
   familyStatus       String
   arrivalDate        DateTime
+  photoUrl           String?  @db.NVarChar(500)
+  passportScanUrl    String?  @db.NVarChar(500)
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
@@ -160,6 +165,7 @@ model FamilyPermit {
   expiryDate    DateTime?
   status        String    @default("active")
   renewedFromId String?
+  scanUrl       String?   @db.NVarChar(500)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
