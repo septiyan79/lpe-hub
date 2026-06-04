@@ -47,3 +47,6 @@ lerna-debug.log*
 
 #Other
 OLD-FILES/
+
+# User uploaded files
+public/uploads/
