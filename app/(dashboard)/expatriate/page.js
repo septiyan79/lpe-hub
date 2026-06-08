@@ -245,11 +245,17 @@ export default function ExpatriatePage() {
                 className={`w-full text-left bg-white border border-gray-200 ${borderL} rounded-xl overflow-hidden hover:shadow-md ${hoverBorder} transition-all duration-200 group`}>
                 <div className="flex items-stretch">
 
-                  {/* Avatar */}
-                  <div className={`flex items-center justify-center w-16 shrink-0 ${avatarBg}`}>
+                  {/* Avatar / Foto */}
+                  <div className={`flex items-center justify-center w-16 shrink-0 ${avatarBg} overflow-hidden relative`}>
+                    {/* Inisial selalu tampil sebagai fallback */}
                     <div className={`w-10 h-10 rounded-full bg-white/25 flex items-center justify-center font-bold text-sm ${avatarText}`}>
                       {initials || "?"}
                     </div>
+                    {expat.photoUrl && (
+                      <img src={expat.photoUrl} alt={expat.name}
+                        className="absolute inset-0 w-full h-full object-cover"
+                        onError={e => { e.currentTarget.style.display = "none"; }} />
+                    )}
                   </div>
 
                   {/* Main content */}

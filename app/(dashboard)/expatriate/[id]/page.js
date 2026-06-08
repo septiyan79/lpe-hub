@@ -1055,6 +1055,8 @@ export default function ExpatDetailPage({ params }) {
   const [saving, setSaving] = useState(false);
   const [delConfirm, setDelConfirm] = useState(false);
   const [tab, setTab] = useState("data");
+  const photoInputRef = useRef(null);
+  const passportInputRef = useRef(null);
 
   async function fetchData() {
     const [expatRes, typesRes] = await Promise.all([
@@ -1104,6 +1106,38 @@ export default function ExpatDetailPage({ params }) {
 
   function setF(k, v) { setForm(f => ({ ...f, [k]: v })); }
 
+  async function handlePhotoUpload(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await fetch(`/api/expatriate/${id}/photo`, { method: "POST", body: fd });
+    if (res.ok) { const d = await res.json(); setExpat(ex => ({ ...ex, photoUrl: d.photoUrl })); }
+    e.target.value = "";
+  }
+
+  async function handlePhotoDelete() {
+    if (!confirm("Hapus foto?")) return;
+    await fetch(`/api/expatriate/${id}/photo`, { method: "DELETE" });
+    setExpat(ex => ({ ...ex, photoUrl: null }));
+  }
+
+  async function handlePassportScanUpload(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await fetch(`/api/expatriate/${id}/passport-scan`, { method: "POST", body: fd });
+    if (res.ok) { const d = await res.json(); setExpat(ex => ({ ...ex, passportScanUrl: d.passportScanUrl })); }
+    e.target.value = "";
+  }
+
+  async function handlePassportScanDelete() {
+    if (!confirm("Hapus scan paspor?")) return;
+    await fetch(`/api/expatriate/${id}/passport-scan`, { method: "DELETE" });
+    setExpat(ex => ({ ...ex, passportScanUrl: null }));
+  }
+
   const expatPermitTypes = permitTypes.filter(t => t.forExpat);
   const familyPermitTypes = permitTypes.filter(t => t.forFamily);
 
@@ -1146,11 +1180,30 @@ export default function ExpatDetailPage({ params }) {
         {/* ── Hero Card ── */}
         <div className={`bg-white border border-gray-200 rounded-xl overflow-hidden mb-6 ${borderL}`}>
           <div className="flex items-stretch">
-            {/* Avatar */}
-            <div className={`flex items-center justify-center w-20 shrink-0 ${avatarBg}`}>
+            {/* Avatar / Foto */}
+            <div className={`flex items-center justify-center w-20 shrink-0 ${avatarBg} relative group overflow-hidden cursor-pointer`}
+              onClick={() => photoInputRef.current?.click()}>
+              <input ref={photoInputRef} type="file" accept="image/jpeg,image/png" className="hidden" onChange={handlePhotoUpload} />
+              {/* Inisial selalu tampil sebagai fallback */}
               <div className={`w-12 h-12 rounded-full bg-white/30 flex items-center justify-center font-bold text-base ${avatarText}`}>
                 {initials || "?"}
               </div>
+              {/* Foto ditumpuk di atas; onError menyembunyikannya jika file tidak ada */}
+              {expat.photoUrl && (
+                <img src={expat.photoUrl} alt={expat.name}
+                  className="absolute inset-0 w-full h-full object-cover"
+                  onError={e => { e.currentTarget.style.display = "none"; }} />
+              )}
+              {/* Hover overlay */}
+              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center pointer-events-none">
+                <ImageIcon size={18} className="text-white" />
+              </div>
+              {expat.photoUrl && (
+                <button onClick={e => { e.stopPropagation(); handlePhotoDelete(); }}
+                  className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition flex items-center justify-center z-10">
+                  <X size={10} />
+                </button>
+              )}
             </div>
 
             {/* Info */}
@@ -1173,7 +1226,28 @@ export default function ExpatDetailPage({ params }) {
                     </span>
                   )}
                 </div>
-                <div className="flex gap-2 shrink-0">
+                <div className="flex gap-2 shrink-0 items-center">
+                  {/* Passport scan icon */}
+                  <input ref={passportInputRef} type="file" accept="application/pdf" className="hidden" onChange={handlePassportScanUpload} />
+                  {expat.passportScanUrl ? (
+                    <div className="flex items-center gap-0.5">
+                      <a href={expat.passportScanUrl} target="_blank" rel="noreferrer"
+                        title="Lihat scan paspor"
+                        className="flex items-center border border-gray-300 text-gray-700 text-sm p-1.5 rounded-lg hover:bg-gray-50 transition">
+                        <Paperclip size={14} />
+                      </a>
+                      <button onClick={handlePassportScanDelete} title="Hapus scan paspor"
+                        className="flex items-center border border-gray-200 text-gray-400 text-sm p-1.5 rounded-lg hover:bg-red-50 hover:text-red-500 hover:border-red-200 transition">
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ) : (
+                    <button onClick={() => passportInputRef.current?.click()}
+                      title="Upload scan paspor"
+                      className="flex items-center border border-dashed border-gray-300 text-gray-400 text-sm p-1.5 rounded-lg hover:border-gray-400 hover:text-gray-600 transition">
+                      <Paperclip size={14} />
+                    </button>
+                  )}
                   {editing ? (
                     <>
                       <button onClick={() => setEditing(false)}
@@ -1306,37 +1380,24 @@ export default function ExpatDetailPage({ params }) {
             <div className="mt-5 pt-4 border-t">
               <SectionHeader icon={FileText} label="Passport" />
               <div className="grid grid-cols-3 gap-4">
-                <Field label="Nomor Passport" value={editing ? form.passportNo : expat.passportNo} onChange={v => setF("passportNo", v)} editing={editing} />
+                {editing ? (
+                  <Field label="Nomor Passport" value={form.passportNo} onChange={v => setF("passportNo", v)} editing />
+                ) : (
+                  <div>
+                    <p className="text-xs text-gray-400 mb-0.5">Nomor Passport</p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-sm text-gray-800 font-medium">{expat.passportNo || "-"}</p>
+                      {expat.passportScanUrl && (
+                        <a href={expat.passportScanUrl} target="_blank" rel="noreferrer"
+                          title="Lihat scan paspor" className="text-blue-500 hover:text-blue-700 shrink-0">
+                          <Paperclip size={13} />
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                )}
                 <Field label="Issued Date" value={editing ? form.passportIssuedDate : fmtDate(expat.passportIssuedDate)} onChange={v => setF("passportIssuedDate", v)} type="date" editing={editing} />
                 <Field label="Expiry Date" value={editing ? form.passportExpiryDate : fmtDate(expat.passportExpiryDate)} onChange={v => setF("passportExpiryDate", v)} type="date" editing={editing} />
-              </div>
-            </div>
-
-            <div className="mt-5 pt-4 border-t">
-              <SectionHeader icon={ImageIcon} label="Dokumen" />
-              <div className="grid grid-cols-2 gap-5">
-                <div>
-                  <p className="text-xs text-gray-500 mb-2">Pas Foto</p>
-                  <FileUploadSlot
-                    label="Pas Foto"
-                    url={expat.photoUrl}
-                    accept="image/jpeg,image/png"
-                    uploadUrl={`/api/expatriate/${id}/photo`}
-                    onUploaded={(url) => setExpat(e => ({ ...e, photoUrl: url }))}
-                    onDeleted={() => setExpat(e => ({ ...e, photoUrl: null }))}
-                  />
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 mb-2">Scan Paspor</p>
-                  <FileUploadSlot
-                    label="Scan Paspor"
-                    url={expat.passportScanUrl}
-                    accept="application/pdf"
-                    uploadUrl={`/api/expatriate/${id}/passport-scan`}
-                    onUploaded={(url) => setExpat(e => ({ ...e, passportScanUrl: url }))}
-                    onDeleted={() => setExpat(e => ({ ...e, passportScanUrl: null }))}
-                  />
-                </div>
               </div>
             </div>
 
