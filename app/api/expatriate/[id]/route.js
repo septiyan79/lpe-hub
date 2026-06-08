@@ -26,9 +26,11 @@ export async function GET(req, { params }) {
             orderBy: { issuedDate: "asc" },
             include: { permitType: true },
           },
+          passportHistories: { orderBy: { replacedAt: "desc" } },
         },
       },
       histories: { orderBy: { changedAt: "desc" }, take: 20 },
+      passportHistories: { orderBy: { replacedAt: "desc" } },
     },
   });
 
