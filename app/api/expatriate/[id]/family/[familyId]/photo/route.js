@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { requireExpatAdmin } from "../../../../_helpers";
-import { saveUploadedFile, deleteFileIfExists, ALLOWED_IMAGE } from "../../../../_upload-helpers";
+import { requireExpatAdmin } from "@/app/api/expatriate/_helpers";
+import { saveUploadedFile, deleteFileIfExists, ALLOWED_IMAGE } from "@/app/api/expatriate/_upload-helpers";
 
 export async function POST(req, { params }) {
   const session = await requireExpatAdmin();
