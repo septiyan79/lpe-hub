@@ -675,6 +675,11 @@ function FamilyDetailPanel({ member, expatId, familyPermitTypes, onRefresh, onDe
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({});
   const [saving, setSaving] = useState(false);
+  const [passportRenewModal, setPassportRenewModal] = useState(false);
+  const [passportRenewForm, setPassportRenewForm] = useState({ passportNo: "", passportIssuedDate: "", passportExpiryDate: "" });
+  const [passportRenewSaving, setPassportRenewSaving] = useState(false);
+  const [passportRenewError, setPassportRenewError] = useState("");
+  const [passportHistoryModal, setPassportHistoryModal] = useState(false);
 
   function startEdit() {
     setForm({
@@ -703,6 +708,33 @@ function FamilyDetailPanel({ member, expatId, familyPermitTypes, onRefresh, onDe
   }
 
   function setF(k, v) { setForm(f => ({ ...f, [k]: v })); }
+
+  async function handleFamilyPassportRenew(e) {
+    e.preventDefault();
+    setPassportRenewError("");
+    setPassportRenewSaving(true);
+    try {
+      const res = await fetch(`/api/expatriate/${expatId}/family/${member.id}/passport/renew`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(passportRenewForm),
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        setPassportRenewError(d.error || "Gagal menyimpan");
+        return;
+      }
+      setPassportRenewModal(false);
+      onRefresh();
+    } finally {
+      setPassportRenewSaving(false);
+    }
+  }
+
+  async function handleFamilyPassportHistoryDelete(historyId) {
+    await fetch(`/api/expatriate/${expatId}/family/${member.id}/passport/history/${historyId}`, { method: "DELETE" });
+    onRefresh();
+  }
 
   return (
     <div className="space-y-5">
@@ -761,6 +793,23 @@ function FamilyDetailPanel({ member, expatId, familyPermitTypes, onRefresh, onDe
               <Field label="Tempat Lahir" value={member.birthPlace} />
               <Field label="Tanggal Lahir" value={fmtDate(member.birthDate)} />
               <Field label="Arrival Date" value={fmtDate(member.arrivalDate)} />
+              <div className="col-span-2 flex items-center justify-between pt-2 border-t mt-1">
+                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1">
+                  <FileText size={11} /> Passport
+                </span>
+                <div className="flex gap-2">
+                  {(member.passportHistories?.length > 0) && (
+                    <button onClick={() => setPassportHistoryModal(true)}
+                      className="flex items-center gap-1 text-[11px] text-gray-500 hover:text-gray-700 border border-gray-200 rounded-md px-2 py-0.5 hover:bg-gray-50 transition">
+                      <History size={11} /> {member.passportHistories.length}
+                    </button>
+                  )}
+                  <button onClick={() => { setPassportRenewForm({ passportNo: "", passportIssuedDate: "", passportExpiryDate: "" }); setPassportRenewModal(true); }}
+                    className="flex items-center gap-1 text-[11px] text-blue-600 hover:text-blue-800 border border-blue-200 rounded-md px-2 py-0.5 hover:bg-blue-50 transition">
+                    <RotateCcw size={11} /> Perpanjang
+                  </button>
+                </div>
+              </div>
               <Field label="Nomor Passport" value={member.passportNo} />
               <Field label="Passport Issued" value={fmtDate(member.passportIssuedDate)} />
               <Field label="Passport Expiry" value={fmtDate(member.passportExpiryDate)} />
@@ -807,6 +856,114 @@ function FamilyDetailPanel({ member, expatId, familyPermitTypes, onRefresh, onDe
           personName={member.name}
         />
       </div>
+
+      {/* ── Modal Perpanjang Paspor Keluarga ── */}
+      {passportRenewModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <RotateCcw size={16} className="text-blue-500" />
+                <h3 className="font-bold text-orange-950">Perpanjang Paspor</h3>
+              </div>
+              <button onClick={() => setPassportRenewModal(false)}><X size={18} className="text-gray-400" /></button>
+            </div>
+
+            <div className="bg-gray-50 border border-gray-100 rounded-lg px-3 py-2.5 mb-4 text-xs">
+              <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-1">{member.name}</p>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-mono text-gray-700 font-semibold">{member.passportNo}</span>
+                <span className={`px-1.5 py-0.5 rounded-full font-medium ${expiryColor(member.passportExpiryDate)}`}>
+                  s/d {fmtDate(member.passportExpiryDate)}
+                </span>
+              </div>
+            </div>
+
+            <form onSubmit={handleFamilyPassportRenew} className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nomor Paspor Baru</label>
+                <input value={passportRenewForm.passportNo}
+                  onChange={e => setPassportRenewForm(f => ({ ...f, passportNo: e.target.value }))} required
+                  placeholder={member.passportNo}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Issued Date</label>
+                  <input type="date" value={passportRenewForm.passportIssuedDate}
+                    onChange={e => setPassportRenewForm(f => ({ ...f, passportIssuedDate: e.target.value }))} required
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Expiry Date</label>
+                  <input type="date" value={passportRenewForm.passportExpiryDate}
+                    onChange={e => setPassportRenewForm(f => ({ ...f, passportExpiryDate: e.target.value }))} required
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                </div>
+              </div>
+              {passportRenewError && <p className="text-sm text-red-500">{passportRenewError}</p>}
+              <div className="flex gap-3 pt-1">
+                <button type="button" onClick={() => setPassportRenewModal(false)}
+                  className="flex-1 border border-gray-300 text-gray-700 rounded-lg py-2 text-sm hover:bg-gray-50 transition">Batal</button>
+                <button type="submit" disabled={passportRenewSaving}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-2 text-sm transition disabled:opacity-60 flex items-center justify-center gap-1.5">
+                  <RotateCcw size={13} />
+                  {passportRenewSaving ? "Menyimpan..." : "Perpanjang"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal Riwayat Paspor Keluarga ── */}
+      {passportHistoryModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <History size={16} className="text-gray-500" />
+                <div>
+                  <h3 className="font-bold text-orange-950 leading-tight">Riwayat Paspor</h3>
+                  <p className="text-[11px] text-gray-400 mt-0.5">{member.name}</p>
+                </div>
+              </div>
+              <button onClick={() => setPassportHistoryModal(false)}><X size={18} className="text-gray-400" /></button>
+            </div>
+
+            <div className="space-y-2">
+              {(member.passportHistories ?? []).map(h => (
+                <div key={h.id} className="flex items-center gap-3 rounded-xl border border-gray-100 border-l-4 border-l-gray-200 bg-gray-50 px-4 py-2.5 group">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[11px] font-mono text-gray-700 font-semibold">{h.passportNo}</p>
+                    <div className="flex items-center gap-1.5 text-xs text-gray-400 mt-0.5">
+                      <span>{fmtDate(h.issuedDate)}</span>
+                      <span className="text-gray-300">→</span>
+                      <span>{fmtDate(h.expiryDate)}</span>
+                    </div>
+                  </div>
+                  {h.scanUrl && (
+                    <a href={h.scanUrl} target="_blank" rel="noreferrer"
+                      className="flex items-center gap-1 text-[11px] text-blue-500 hover:underline shrink-0">
+                      <Paperclip size={11} /> Scan
+                    </a>
+                  )}
+                  <button onClick={() => handleFamilyPassportHistoryDelete(h.id)}
+                    title="Hapus riwayat"
+                    className="p-1.5 rounded-lg hover:bg-red-100 text-red-400 opacity-0 group-hover:opacity-100 transition shrink-0">
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <button onClick={() => setPassportHistoryModal(false)}
+              className="mt-4 w-full border border-gray-300 text-gray-600 rounded-lg py-2 text-sm hover:bg-gray-50 transition">
+              Tutup
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1058,6 +1215,12 @@ export default function ExpatDetailPage({ params }) {
   const photoInputRef = useRef(null);
   const passportInputRef = useRef(null);
 
+  const [passportRenewModal, setPassportRenewModal] = useState(false);
+  const [passportRenewForm, setPassportRenewForm] = useState({ passportNo: "", passportIssuedDate: "", passportExpiryDate: "" });
+  const [passportRenewSaving, setPassportRenewSaving] = useState(false);
+  const [passportRenewError, setPassportRenewError] = useState("");
+  const [passportHistoryModal, setPassportHistoryModal] = useState(false);
+
   async function fetchData() {
     const [expatRes, typesRes] = await Promise.all([
       fetch(`/api/expatriate/${id}`),
@@ -1138,8 +1301,34 @@ export default function ExpatDetailPage({ params }) {
     setExpat(ex => ({ ...ex, passportScanUrl: null }));
   }
 
+  async function handlePassportRenew(e) {
+    e.preventDefault();
+    setPassportRenewSaving(true);
+    setPassportRenewError("");
+    try {
+      const res = await fetch(`/api/expatriate/${id}/passport/renew`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(passportRenewForm),
+      });
+      const data = await res.json();
+      if (!res.ok) { setPassportRenewError(data.error || "Gagal menyimpan"); return; }
+      setPassportRenewModal(false);
+      fetchData();
+    } finally {
+      setPassportRenewSaving(false);
+    }
+  }
+
+  async function handlePassportHistoryDelete(historyId) {
+    if (!confirm("Hapus riwayat paspor ini?")) return;
+    await fetch(`/api/expatriate/${id}/passport/history/${historyId}`, { method: "DELETE" });
+    fetchData();
+  }
+
   const expatPermitTypes = permitTypes.filter(t => t.forExpat);
   const familyPermitTypes = permitTypes.filter(t => t.forFamily);
+  const effectivePassportScanUrl = expat?.passportScanUrl || expat?.passportHistories?.[0]?.scanUrl;
 
   if (loading) return (
     <div className="flex flex-col items-center justify-center py-20 gap-3 text-gray-400">
@@ -1229,18 +1418,12 @@ export default function ExpatDetailPage({ params }) {
                 <div className="flex gap-2 shrink-0 items-center">
                   {/* Passport scan icon */}
                   <input ref={passportInputRef} type="file" accept="application/pdf" className="hidden" onChange={handlePassportScanUpload} />
-                  {expat.passportScanUrl ? (
-                    <div className="flex items-center gap-0.5">
-                      <a href={expat.passportScanUrl} target="_blank" rel="noreferrer"
-                        title="Lihat scan paspor"
-                        className="flex items-center border border-gray-300 text-gray-700 text-sm p-1.5 rounded-lg hover:bg-gray-50 transition">
-                        <Paperclip size={14} />
-                      </a>
-                      <button onClick={handlePassportScanDelete} title="Hapus scan paspor"
-                        className="flex items-center border border-gray-200 text-gray-400 text-sm p-1.5 rounded-lg hover:bg-red-50 hover:text-red-500 hover:border-red-200 transition">
-                        <X size={12} />
-                      </button>
-                    </div>
+                  {effectivePassportScanUrl ? (
+                    <a href={effectivePassportScanUrl} target="_blank" rel="noreferrer"
+                      title="Lihat scan paspor"
+                      className="flex items-center border border-gray-300 text-gray-700 text-sm p-1.5 rounded-lg hover:bg-gray-50 transition">
+                      <Paperclip size={14} />
+                    </a>
                   ) : (
                     <button onClick={() => passportInputRef.current?.click()}
                       title="Upload scan paspor"
@@ -1378,7 +1561,24 @@ export default function ExpatDetailPage({ params }) {
             </div>
 
             <div className="mt-5 pt-4 border-t">
-              <SectionHeader icon={FileText} label="Passport" />
+              <div className="flex items-center justify-between mb-3">
+                <SectionHeader icon={FileText} label="Passport" />
+                <div className="flex gap-2">
+                  {(expat.passportHistories?.length ?? 0) > 0 && (
+                    <button onClick={() => setPassportHistoryModal(true)}
+                      className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded-lg transition">
+                      <History size={12} />
+                      <span className="font-bold">{expat.passportHistories.length}</span>
+                    </button>
+                  )}
+                  {!editing && (
+                    <button onClick={() => { setPassportRenewForm({ passportNo: "", passportIssuedDate: "", passportExpiryDate: "" }); setPassportRenewError(""); setPassportRenewModal(true); }}
+                      className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium">
+                      <RotateCcw size={12} /> Perpanjang
+                    </button>
+                  )}
+                </div>
+              </div>
               <div className="grid grid-cols-3 gap-4">
                 {editing ? (
                   <Field label="Nomor Passport" value={form.passportNo} onChange={v => setF("passportNo", v)} editing />
@@ -1387,11 +1587,21 @@ export default function ExpatDetailPage({ params }) {
                     <p className="text-xs text-gray-400 mb-0.5">Nomor Passport</p>
                     <div className="flex items-center gap-1.5">
                       <p className="text-sm text-gray-800 font-medium">{expat.passportNo || "-"}</p>
-                      {expat.passportScanUrl && (
-                        <a href={expat.passportScanUrl} target="_blank" rel="noreferrer"
-                          title="Lihat scan paspor" className="text-blue-500 hover:text-blue-700 shrink-0">
-                          <Paperclip size={13} />
-                        </a>
+                      {effectivePassportScanUrl && (
+                        <>
+                          <a href={effectivePassportScanUrl} target="_blank" rel="noreferrer"
+                            title="Lihat scan paspor" className="text-blue-500 hover:text-blue-700 shrink-0">
+                            <Paperclip size={13} />
+                          </a>
+                          <button
+                            onClick={() => expat.passportScanUrl
+                              ? handlePassportScanDelete()
+                              : handlePassportHistoryDelete(expat.passportHistories[0].id)}
+                            title="Hapus scan paspor"
+                            className="text-gray-300 hover:text-red-500 shrink-0 transition">
+                            <Trash2 size={11} />
+                          </button>
+                        </>
                       )}
                     </div>
                   </div>
@@ -1431,6 +1641,114 @@ export default function ExpatDetailPage({ params }) {
             familyPermitTypes={familyPermitTypes}
             onRefresh={fetchData}
           />
+        )}
+
+        {/* ── Modal Perpanjang Paspor ── */}
+        {passportRenewModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <RotateCcw size={16} className="text-blue-500" />
+                  <h3 className="font-bold text-orange-950">Perpanjang Paspor</h3>
+                </div>
+                <button onClick={() => setPassportRenewModal(false)}><X size={18} className="text-gray-400" /></button>
+              </div>
+
+              <div className="bg-gray-50 border border-gray-100 rounded-lg px-3 py-2.5 mb-4 text-xs">
+                <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-1">Paspor saat ini</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-mono text-gray-700 font-semibold">{expat.passportNo}</span>
+                  <span className={`px-1.5 py-0.5 rounded-full font-medium ${expiryColor(expat.passportExpiryDate)}`}>
+                    s/d {fmtDate(expat.passportExpiryDate)}
+                  </span>
+                </div>
+              </div>
+
+              <form onSubmit={handlePassportRenew} className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Nomor Paspor Baru</label>
+                  <input value={passportRenewForm.passportNo}
+                    onChange={e => setPassportRenewForm(f => ({ ...f, passportNo: e.target.value }))} required
+                    placeholder={expat.passportNo}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Issued Date</label>
+                    <input type="date" value={passportRenewForm.passportIssuedDate}
+                      onChange={e => setPassportRenewForm(f => ({ ...f, passportIssuedDate: e.target.value }))} required
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Expiry Date</label>
+                    <input type="date" value={passportRenewForm.passportExpiryDate}
+                      onChange={e => setPassportRenewForm(f => ({ ...f, passportExpiryDate: e.target.value }))} required
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                  </div>
+                </div>
+                {passportRenewError && <p className="text-sm text-red-500">{passportRenewError}</p>}
+                <div className="flex gap-3 pt-1">
+                  <button type="button" onClick={() => setPassportRenewModal(false)}
+                    className="flex-1 border border-gray-300 text-gray-700 rounded-lg py-2 text-sm hover:bg-gray-50 transition">Batal</button>
+                  <button type="submit" disabled={passportRenewSaving}
+                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-2 text-sm transition disabled:opacity-60 flex items-center justify-center gap-1.5">
+                    <RotateCcw size={13} />
+                    {passportRenewSaving ? "Menyimpan..." : "Perpanjang"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* ── Modal Riwayat Paspor ── */}
+        {passportHistoryModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-5">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <History size={16} className="text-gray-500" />
+                  <div>
+                    <h3 className="font-bold text-orange-950 leading-tight">Riwayat Paspor</h3>
+                    <p className="text-[11px] text-gray-400 mt-0.5">{expat.name}</p>
+                  </div>
+                </div>
+                <button onClick={() => setPassportHistoryModal(false)}><X size={18} className="text-gray-400" /></button>
+              </div>
+
+              <div className="space-y-2">
+                {(expat.passportHistories ?? []).map(h => (
+                  <div key={h.id} className="flex items-center gap-3 rounded-xl border border-gray-100 border-l-4 border-l-gray-200 bg-gray-50 px-4 py-2.5 group">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[11px] font-mono text-gray-700 font-semibold">{h.passportNo}</p>
+                      <div className="flex items-center gap-1.5 text-xs text-gray-400 mt-0.5">
+                        <span>{fmtDate(h.issuedDate)}</span>
+                        <span className="text-gray-300">→</span>
+                        <span>{fmtDate(h.expiryDate)}</span>
+                      </div>
+                    </div>
+                    {h.scanUrl && (
+                      <a href={h.scanUrl} target="_blank" rel="noreferrer"
+                        className="flex items-center gap-1 text-[11px] text-blue-500 hover:underline shrink-0">
+                        <Paperclip size={11} /> Scan
+                      </a>
+                    )}
+                    <button onClick={() => handlePassportHistoryDelete(h.id)}
+                      title="Hapus riwayat"
+                      className="p-1.5 rounded-lg hover:bg-red-100 text-red-400 opacity-0 group-hover:opacity-100 transition shrink-0">
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <button onClick={() => setPassportHistoryModal(false)}
+                className="mt-4 w-full border border-gray-300 text-gray-600 rounded-lg py-2 text-sm hover:bg-gray-50 transition">
+                Tutup
+              </button>
+            </div>
+          </div>
         )}
 
         {/* Delete confirm modal */}

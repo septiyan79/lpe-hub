@@ -110,9 +110,10 @@ model Expatriate {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
-  permits   ExpatPermit[]
-  families  ExpatFamily[]
-  histories ExpatHistory[]
+  permits           ExpatPermit[]
+  families          ExpatFamily[]
+  histories         ExpatHistory[]
+  passportHistories ExpatPassportHistory[]
 }
 
 model ExpatPermit {
@@ -151,9 +152,10 @@ model ExpatFamily {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
-  expat     Expatriate           @relation(fields: [expatId], references: [id], onDelete: Cascade)
-  permits   FamilyPermit[]
-  histories ExpatFamilyHistory[]
+  expat             Expatriate             @relation(fields: [expatId], references: [id], onDelete: Cascade)
+  permits           FamilyPermit[]
+  histories         ExpatFamilyHistory[]
+  passportHistories FamilyPassportHistory[]
 }
 
 model FamilyPermit {
@@ -220,4 +222,30 @@ model FamilyPermitHistory {
   changedBy String
 
   permit    FamilyPermit @relation(fields: [permitId], references: [id], onDelete: Cascade)
+}
+
+model ExpatPassportHistory {
+  id         String     @id @default(cuid())
+  expatId    String
+  passportNo String
+  issuedDate DateTime
+  expiryDate DateTime
+  scanUrl    String?    @db.NVarChar(500)
+  replacedAt DateTime   @default(now())
+  replacedBy String
+
+  expat      Expatriate @relation(fields: [expatId], references: [id], onDelete: Cascade)
+}
+
+model FamilyPassportHistory {
+  id         String      @id @default(cuid())
+  familyId   String
+  passportNo String
+  issuedDate DateTime
+  expiryDate DateTime
+  scanUrl    String?     @db.NVarChar(500)
+  replacedAt DateTime    @default(now())
+  replacedBy String
+
+  family     ExpatFamily @relation(fields: [familyId], references: [id], onDelete: Cascade)
 }
