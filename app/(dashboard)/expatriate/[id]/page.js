@@ -245,6 +245,8 @@ function PermitSection({ permits, expatId, familyId, permitTypes, onRefresh, per
   const [renewForm, setRenewForm] = useState({ number: "", issuedDate: "", expiryDate: "" });
   const [renewSaving, setRenewSaving] = useState(false);
   const [renewError, setRenewError] = useState("");
+  const [renewScanFile, setRenewScanFile] = useState(null);
+  const renewScanRef = useRef(null);
 
   const [archiveModal, setArchiveModal] = useState(null); // { permitTypeId, name }
 
@@ -307,6 +309,8 @@ function PermitSection({ permits, expatId, familyId, permitTypes, onRefresh, per
   function openRenew(p) {
     setRenewForm({ number: "", issuedDate: "", expiryDate: "" });
     setRenewError("");
+    setRenewScanFile(null);
+    if (renewScanRef.current) renewScanRef.current.value = "";
     setRenewModal(p);
   }
 
@@ -322,6 +326,13 @@ function PermitSection({ permits, expatId, familyId, permitTypes, onRefresh, per
       });
       const data = await res.json();
       if (!res.ok) { setRenewError(data.error || "Gagal menyimpan"); return; }
+
+      if (renewScanFile) {
+        const fd = new FormData();
+        fd.append("file", renewScanFile);
+        await fetch(`${baseUrl}/${data.id}/scan`, { method: "POST", body: fd });
+      }
+
       setRenewModal(null);
       onRefresh();
     } finally {
@@ -648,6 +659,26 @@ function PermitSection({ permits, expatId, familyId, permitTypes, onRefresh, per
                   <input type="date" value={renewForm.expiryDate} onChange={e => setRenewForm(f => ({ ...f, expiryDate: e.target.value }))} required
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
                 </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Scan Dokumen <span className="text-gray-400 font-normal text-xs">— PDF, opsional</span>
+                </label>
+                <input ref={renewScanRef} type="file" accept="application/pdf" className="hidden"
+                  onChange={e => setRenewScanFile(e.target.files?.[0] ?? null)} />
+                {renewScanFile ? (
+                  <div className="flex items-center gap-2 border border-green-200 bg-green-50 rounded-lg px-3 py-2">
+                    <Paperclip size={13} className="text-green-600 shrink-0" />
+                    <span className="text-green-700 text-xs truncate flex-1">{renewScanFile.name}</span>
+                    <button type="button" onClick={() => { setRenewScanFile(null); if (renewScanRef.current) renewScanRef.current.value = ""; }}
+                      className="text-gray-400 hover:text-red-500 shrink-0 transition"><X size={12} /></button>
+                  </div>
+                ) : (
+                  <button type="button" onClick={() => renewScanRef.current?.click()}
+                    className="w-full border border-dashed border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-400 hover:border-gray-400 hover:text-gray-600 transition flex items-center justify-center gap-1.5">
+                    <Upload size={13} /> Pilih file PDF
+                  </button>
+                )}
               </div>
               {renewError && <p className="text-sm text-red-500">{renewError}</p>}
               <div className="flex gap-3 pt-1">
@@ -1370,8 +1401,7 @@ export default function ExpatDetailPage({ params }) {
         <div className={`bg-white border border-gray-200 rounded-xl overflow-hidden mb-6 ${borderL}`}>
           <div className="flex items-stretch">
             {/* Avatar / Foto */}
-            <div className={`flex items-center justify-center w-20 shrink-0 ${avatarBg} relative group overflow-hidden cursor-pointer`}
-              onClick={() => photoInputRef.current?.click()}>
+            <div className={`flex items-center justify-center w-20 shrink-0 ${avatarBg} relative group overflow-hidden`}>
               <input ref={photoInputRef} type="file" accept="image/jpeg,image/png" className="hidden" onChange={handlePhotoUpload} />
               {/* Inisial selalu tampil sebagai fallback */}
               <div className={`w-12 h-12 rounded-full bg-white/30 flex items-center justify-center font-bold text-base ${avatarText}`}>
@@ -1384,15 +1414,20 @@ export default function ExpatDetailPage({ params }) {
                   onError={e => { e.currentTarget.style.display = "none"; }} />
               )}
               {/* Hover overlay */}
-              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center pointer-events-none">
-                <ImageIcon size={18} className="text-white" />
-              </div>
-              {expat.photoUrl && (
-                <button onClick={e => { e.stopPropagation(); handlePhotoDelete(); }}
-                  className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition flex items-center justify-center z-10">
-                  <X size={10} />
+              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2">
+                {expat.photoUrl && (
+                  <a href={expat.photoUrl} target="_blank" rel="noreferrer"
+                    title="Lihat foto"
+                    className="p-1.5 rounded-lg bg-white/20 hover:bg-white/35 transition text-white">
+                    <ImageIcon size={15} />
+                  </a>
+                )}
+                <button type="button" onClick={() => photoInputRef.current?.click()}
+                  title={expat.photoUrl ? "Ganti foto" : "Upload foto"}
+                  className="p-1.5 rounded-lg bg-white/20 hover:bg-white/35 transition text-white">
+                  <Pencil size={15} />
                 </button>
-              )}
+              </div>
             </div>
 
             {/* Info */}
