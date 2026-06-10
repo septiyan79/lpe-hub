@@ -380,6 +380,12 @@ function PermitSection({ permits, expatId, familyId, permitTypes, onRefresh, per
               days < 0 ? "bg-red-50/60" :
               days <= 30 ? "bg-orange-50/50" :
               days <= 90 ? "bg-yellow-50/40" : "bg-white";
+            const hoverColor = isEPO ? "hover:bg-red-50 hover:border-red-200" :
+              isOneTime ? "hover:bg-blue-50/50 hover:border-blue-200" :
+              days === null ? "hover:bg-gray-100/60 hover:border-gray-200" :
+              days < 0 ? "hover:bg-red-50 hover:border-red-200" :
+              days <= 30 ? "hover:bg-orange-50 hover:border-orange-200" :
+              days <= 90 ? "hover:bg-yellow-50 hover:border-yellow-200" : "hover:bg-green-50/50 hover:border-green-200";
             const countdownCls = isOneTime ? "bg-blue-100 text-blue-600" :
               days === null ? "" :
               days < 0 ? "bg-red-100 text-red-700" :
@@ -399,7 +405,7 @@ function PermitSection({ permits, expatId, familyId, permitTypes, onRefresh, per
 
             return (
               <div key={p.id}
-                className={`flex items-center gap-3 rounded-xl border border-gray-100 border-l-4 ${borderColor} ${bgColor} px-4 py-2 group`}>
+                className={`flex items-center gap-3 rounded-xl border border-gray-100 border-l-4 ${borderColor} ${bgColor} ${hoverColor} px-4 py-2 group transition-colors`}>
 
                 {/* Type + Number */}
                 <div className="shrink-0 w-60">
@@ -409,13 +415,18 @@ function PermitSection({ permits, expatId, familyId, permitTypes, onRefresh, per
                   <p className="text-[11px] font-mono text-gray-400 truncate" title={p.number}>{p.number}</p>
                 </div>
 
-                {/* Dates */}
-                <div className="flex-1 flex items-center gap-2 text-xs text-gray-600 min-w-0">
+                {/* Dates + countdown */}
+                <div className="flex-1 flex items-center gap-2 text-xs text-gray-600 min-w-0 flex-wrap">
                   <span className="font-medium whitespace-nowrap">{fmtDate(p.issuedDate)}</span>
                   {p.expiryDate && (
                     <>
                       <span className="text-gray-300">→</span>
                       <span className={`whitespace-nowrap ${expiryTextCls}`}>{fmtDate(p.expiryDate)}</span>
+                      {days !== null && (
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md whitespace-nowrap ${countdownCls}`}>
+                          {days < 0 ? `${Math.abs(days)}h lalu` : `${days}h lagi`}
+                        </span>
+                      )}
                     </>
                   )}
                   {!p.expiryDate && !hasExp && (
@@ -423,48 +434,65 @@ function PermitSection({ permits, expatId, familyId, permitTypes, onRefresh, per
                   )}
                 </div>
 
-                {/* Countdown + actions */}
-                <div className="flex items-center gap-1.5 shrink-0">
-                  {days !== null && (
-                    <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md whitespace-nowrap ${countdownCls}`}>
-                      {days < 0 ? `${Math.abs(days)}h lalu` : `${days}h lagi`}
-                    </span>
-                  )}
-                  <FileUploadSlot
-                    compact
-                    label="Scan"
-                    url={p.scanUrl}
-                    accept="application/pdf"
-                    uploadUrl={`${baseUrl}/${p.id}/scan`}
-                    onUploaded={() => onRefresh()}
-                    onDeleted={() => onRefresh()}
-                  />
-                  {(() => {
-                    const historyCount = replacedPermits.filter(r => r.permitTypeId === p.permitTypeId).length;
-                    return (
-                      <button
-                        onClick={() => historyCount > 0 && setArchiveModal({ permitTypeId: p.permitTypeId, name: p.permitType?.name ?? "—" })}
-                        title={historyCount > 0 ? `Lihat ${historyCount} riwayat perpanjangan` : undefined}
-                        className={`flex items-center gap-0.5 px-1.5 py-1 rounded-lg text-gray-500 transition ${
-                          historyCount > 0 ? "bg-gray-100 hover:bg-gray-200 cursor-pointer" : "invisible pointer-events-none"
-                        }`}
-                      >
-                        <History size={11} />
-                        <span className="text-[10px] font-bold">{historyCount}</span>
+                {/* Actions */}
+                <div className="flex items-center gap-2 shrink-0">
+                  {/* Floating toolbar — muncul saat hover */}
+                  <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center bg-white border border-gray-200 shadow-md rounded-lg overflow-hidden divide-x divide-gray-100">
+                      {/* Scan */}
+                      {p.scanUrl ? (
+                        <a href={p.scanUrl} target="_blank" rel="noreferrer"
+                          className="flex items-center gap-1 px-2.5 py-1.5 text-green-600 hover:bg-green-50 transition text-[11px] font-medium">
+                          <Paperclip size={12} /> Scan
+                        </a>
+                      ) : (
+                        <label className="flex items-center gap-1 px-2.5 py-1.5 text-gray-400 hover:bg-gray-50 transition text-[11px] font-medium cursor-pointer">
+                          <input type="file" accept="application/pdf" className="hidden"
+                            onChange={async e => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              const fd = new FormData();
+                              fd.append("file", file);
+                              await fetch(`${baseUrl}/${p.id}/scan`, { method: "POST", body: fd });
+                              e.target.value = "";
+                              onRefresh();
+                            }} />
+                          <Paperclip size={12} /> Scan
+                        </label>
+                      )}
+
+                      {/* Riwayat */}
+                      {(() => {
+                        const historyCount = replacedPermits.filter(r => r.permitTypeId === p.permitTypeId).length;
+                        return historyCount > 0 ? (
+                          <button onClick={() => setArchiveModal({ permitTypeId: p.permitTypeId, name: p.permitType?.name ?? "—" })}
+                            className="flex items-center gap-1 px-2.5 py-1.5 text-gray-500 hover:bg-gray-50 transition text-[11px] font-medium">
+                            <History size={12} />
+                            <span>{historyCount}</span>
+                          </button>
+                        ) : null;
+                      })()}
+
+                      {/* Perpanjang */}
+                      {(hasExp && !isOneTime) && (
+                        <button onClick={() => openRenew(p)}
+                          className="flex items-center gap-1 px-2.5 py-1.5 text-blue-500 hover:bg-blue-50 transition text-[11px] font-medium">
+                          <RotateCcw size={12} /> Perpanjang
+                        </button>
+                      )}
+
+                      {/* Edit */}
+                      <button onClick={() => openEdit(p)}
+                        className="flex items-center gap-1 px-2.5 py-1.5 text-orange-600 hover:bg-orange-50 transition text-[11px] font-medium">
+                        <Pencil size={12} /> Edit
                       </button>
-                    );
-                  })()}
-                  <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition">
-                    <button onClick={() => openRenew(p)} title="Perpanjang izin"
-                      className={`p-1.5 rounded-lg hover:bg-blue-50 text-blue-500 ${(!hasExp || isOneTime) ? "invisible pointer-events-none" : ""}`}>
-                      <RotateCcw size={12} />
-                    </button>
-                    <button onClick={() => openEdit(p)} className="p-1.5 rounded-lg hover:bg-orange-100 text-orange-600">
-                      <Pencil size={12} />
-                    </button>
-                    <button onClick={() => handleDelete(p)} className="p-1.5 rounded-lg hover:bg-red-100 text-red-500">
-                      <Trash2 size={12} />
-                    </button>
+
+                      {/* Hapus */}
+                      <button onClick={() => handleDelete(p)}
+                        className="flex items-center gap-1 px-2.5 py-1.5 text-red-500 hover:bg-red-50 transition text-[11px] font-medium">
+                        <Trash2 size={12} /> Hapus
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -507,11 +535,25 @@ function PermitSection({ permits, expatId, familyId, permitTypes, onRefresh, per
                         )}
                       </div>
                     </div>
-                    {r.scanUrl && (
+                    {r.scanUrl ? (
                       <a href={r.scanUrl} target="_blank" rel="noreferrer"
                         className="flex items-center gap-1 text-[11px] text-blue-500 hover:underline shrink-0">
                         <Paperclip size={11} /> Scan
                       </a>
+                    ) : (
+                      <label className="flex items-center gap-1 text-[11px] text-gray-400 hover:text-blue-500 cursor-pointer shrink-0 transition" title="Upload scan dokumen">
+                        <input type="file" accept="application/pdf" className="hidden"
+                          onChange={async e => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            const fd = new FormData();
+                            fd.append("file", file);
+                            await fetch(`${baseUrl}/${r.id}/scan`, { method: "POST", body: fd });
+                            e.target.value = "";
+                            onRefresh();
+                          }} />
+                        <Upload size={11} /> Upload
+                      </label>
                     )}
                     <button
                       onClick={async () => {
@@ -1571,7 +1613,18 @@ export default function ExpatDetailPage({ params }) {
             <SectionHeader icon={User} label="Data Pribadi" />
             <div className="grid grid-cols-2 gap-4">
               <Field label="Nama Lengkap" value={editing ? form.name : expat.name} onChange={v => setF("name", v)} editing={editing} />
-              <Field label="Gender" value={editing ? form.gender : expat.gender} onChange={v => setF("gender", v)} editing={editing} />
+              {editing ? (
+                <div>
+                  <label className="block text-xs text-gray-500 mb-0.5">Gender</label>
+                  <select value={form.gender} onChange={e => setF("gender", e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400">
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                  </select>
+                </div>
+              ) : (
+                <Field label="Gender" value={expat.gender} />
+              )}
               <Field label="Tempat Lahir" value={editing ? form.birthPlace : expat.birthPlace} onChange={v => setF("birthPlace", v)} editing={editing} />
               <Field label="Tanggal Lahir" value={editing ? form.birthDate : fmtDate(expat.birthDate)} onChange={v => setF("birthDate", v)} type="date" editing={editing} />
               <Field label="Jabatan" value={editing ? form.position : expat.position} onChange={v => setF("position", v)} editing={editing} />
