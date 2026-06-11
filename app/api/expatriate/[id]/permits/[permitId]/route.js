@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireExpatAdmin, diffChanges } from "../../../_helpers";
+import { deleteFileIfExists } from "@/app/api/expatriate/_upload-helpers";
 
 export async function PATCH(req, { params }) {
   const session = await requireExpatAdmin();
@@ -42,6 +43,19 @@ export async function DELETE(req, { params }) {
   const { id, permitId } = await params;
   const permit = await prisma.expatPermit.findUnique({ where: { id: permitId } });
   if (!permit || permit.expatId !== id) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  // Hapus semua permit replaced (history) untuk tipe yang sama — ikut dibersihkan beserta scan-nya
+  const replacedPermits = await prisma.expatPermit.findMany({
+    where: { expatId: id, permitTypeId: permit.permitTypeId, status: "replaced" },
+    select: { id: true, scanUrl: true },
+  });
+  for (const rp of replacedPermits) {
+    if (rp.scanUrl) await deleteFileIfExists(rp.scanUrl);
+    await prisma.expatPermit.delete({ where: { id: rp.id } });
+  }
+
+  // Hapus scan file permit ini
+  if (permit.scanUrl) await deleteFileIfExists(permit.scanUrl);
 
   await prisma.expatPermitHistory.create({
     data: {
