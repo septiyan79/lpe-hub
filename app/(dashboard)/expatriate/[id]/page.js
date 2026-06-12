@@ -522,7 +522,7 @@ function PermitSection({ permits, expatId, familyId, permitTypes, onRefresh, per
 
               <div className="space-y-2">
                 {items.map(r => (
-                  <div key={r.id} className="flex items-center gap-3 rounded-xl border border-gray-100 border-l-4 border-l-gray-200 bg-gray-50 px-4 py-2.5 group">
+                  <div key={r.id} className="flex items-center gap-3 rounded-xl border border-gray-200 border-l-4 border-l-gray-300 bg-gray-50 px-4 py-2.5 group shadow-sm">
                     <div className="flex-1 min-w-0">
                       <p className="text-[11px] font-mono text-gray-500 truncate" title={r.number}>{r.number}</p>
                       <div className="flex items-center gap-1.5 text-xs text-gray-400 mt-0.5">
@@ -1095,7 +1095,7 @@ function FamilySection({ families, expatId, familyPermitTypes, onRefresh }) {
   };
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+    <div className="bg-gray-50 border border-gray-300 rounded-xl overflow-hidden shadow-lg">
       <div className="flex" style={{ minHeight: 420 }}>
 
         {/* ── Kiri: list keluarga ── */}
@@ -1352,12 +1352,6 @@ export default function ExpatDetailPage({ params }) {
     e.target.value = "";
   }
 
-  async function handlePhotoDelete() {
-    if (!confirm("Hapus foto?")) return;
-    await fetch(`/api/expatriate/${id}/photo`, { method: "DELETE" });
-    setExpat(ex => ({ ...ex, photoUrl: null }));
-  }
-
   async function handlePassportScanUpload(e) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -1584,7 +1578,7 @@ export default function ExpatDetailPage({ params }) {
         </div>
 
         {/* ── Tabs ── */}
-        <div className="flex border-b border-gray-200 mb-5 bg-white rounded-t-xl shadow-sm overflow-hidden">
+        <div className="sticky top-[64px] z-40 flex border-b border-gray-200 mb-5 bg-white rounded-t-xl shadow-sm overflow-hidden -mx-4 px-4 md:-mx-10 md:px-10">
           {[
             { key: "data",    label: "Data Pribadi",         icon: User  },
             { key: "permits", label: "Perizinan Expatriate", icon: Globe },
@@ -1609,7 +1603,7 @@ export default function ExpatDetailPage({ params }) {
 
         {/* ── Tab: Data Pribadi ── */}
         {tab === "data" && (
-          <div className="bg-white border border-gray-200 rounded-xl p-5">
+          <div className="bg-gray-50 border border-gray-300 rounded-xl p-5 shadow-lg">
             <SectionHeader icon={User} label="Data Pribadi" />
             <div className="grid grid-cols-2 gap-4">
               <Field label="Nama Lengkap" value={editing ? form.name : expat.name} onChange={v => setF("name", v)} editing={editing} />
@@ -1711,7 +1705,7 @@ export default function ExpatDetailPage({ params }) {
 
         {/* ── Tab: Perizinan Expatriate ── */}
         {tab === "permits" && (
-          <div className="bg-white border border-gray-200 rounded-xl p-5">
+          <div className="bg-gray-50 border border-gray-300 rounded-xl p-5 shadow-lg">
             <PermitSection
               permits={expat.permits ?? []}
               expatId={id}
