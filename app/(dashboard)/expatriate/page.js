@@ -120,9 +120,11 @@ export default function ExpatriatePage() {
   useEffect(() => { fetchList(); }, []);
 
   const filtered = list.filter(e =>
-    e.name.toLowerCase().includes(search.toLowerCase()) ||
-    e.department.toLowerCase().includes(search.toLowerCase()) ||
-    e.position.toLowerCase().includes(search.toLowerCase())
+    !hasEPO(e) && (
+      e.name.toLowerCase().includes(search.toLowerCase()) ||
+      e.department.toLowerCase().includes(search.toLowerCase()) ||
+      e.position.toLowerCase().includes(search.toLowerCase())
+    )
   );
 
   function openAdd() { setForm(EMPTY_FORM); setError(""); setModal(true); }
