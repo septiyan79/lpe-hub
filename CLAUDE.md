@@ -1,103 +1,112 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code when working in this repository.  
+For deeper detail, see [`docs/`](docs/).
 
 ## Project Overview
 
 **LPE HUB** — internal employee activity tracking web app for PT DNP Indonesia. Real production project. Active development.
 
-Current features: Activity Notes (with Progress & Feedback sub-items), Todo List, Admin User Management.  
-Planned: Passport reimbursement, business trip requests, expatriate permit tracking.
+Features: Activity Notes (Progress & Feedback), Todo List, Admin User Management, Expatriate Permit Tracking.
 
 ## Commands
 
 ```bash
-npm run dev        # Start dev server (Next.js)
-npm run build      # Production build
-npm run lint       # ESLint
-npm run seed       # Seed database (creates default users)
-npx prisma db push            # Apply schema changes (use this — migrate dev fails due to no shadow DB permission)
+npm run dev                   # Start dev server (Next.js)
+npm run build                 # Production build (runs prisma generate first)
+npm run seed                  # Seed default admin user
+npx prisma db push            # Apply schema changes (ALWAYS use this — see note below)
 npx prisma generate           # Regenerate Prisma client after schema changes
 npx prisma studio             # Open Prisma Studio GUI
 ```
 
-> **Important:** `prisma migrate dev` will fail because the SQL Server user lacks `CREATE DATABASE` permission (needed for shadow DB). Always use `prisma db push` for schema changes.
+> **Critical:** `prisma migrate dev` WILL FAIL — SQL Server user lacks `CREATE DATABASE` permission for shadow DB. Always use `prisma db push`.
 
 ## Tech Stack
 
-- **Framework:** Next.js 16 (App Router), React 19
-- **Auth:** NextAuth v5 (beta) — Credentials provider, JWT strategy
-- **Database:** SQL Server via Prisma ORM v6
-- **Prisma client output:** `app/generated/prisma` (non-default path — always import from `@/app/generated/prisma`)
-- **UI:** Tailwind CSS v4, Lucide React icons
-- **Password hashing:** bcryptjs (cost factor 12)
+- **Framework:** Next.js 16.2.4 (App Router), React 19
+- **Auth:** NextAuth v5 beta (`next-auth@5.0.0-beta.31`) — Credentials provider, JWT strategy
+- **Database:** SQL Server (`172.16.128.221:1433`) via Prisma ORM v6
+- **Prisma client output:** `app/generated/prisma` — always import from `@/app/generated/prisma`
+- **Prisma singleton:** `import prisma from "@/lib/prisma"`
+- **UI:** Tailwind CSS v4, Lucide React icons, react-icons
+- **Password hashing:** bcryptjs cost factor 12
+
+## Critical Files — Do NOT Delete
+
+| File | Why |
+|------|-----|
+| `proxy.js` | Next.js 16 middleware (replaces `middleware.js`) |
+| `prisma.config.ts` | Loaded by Prisma v6 CLI (`npx prisma generate/push`) |
+| `postcss.config.mjs` | Required for Tailwind CSS v4 |
+| `tsconfig.json` | Contains `@/*` path alias |
 
 ## Architecture
+
+See [`docs/architecture.md`](docs/architecture.md) for the full directory layout and key decisions.
 
 ### Route Groups
 
 ```
 app/
-  (auth)/login/         → Public login page, no Navbar
-  (dashboard)/          → Protected layout (auth required), wraps Navbar
-    page.js             → Home/dashboard
-    notes/              → Activity Notes (user's own data)
-    todolist/           → Todo List (user's own data)
-    admin/users/        → Admin-only: User Management (redirects if not admin)
+  (auth)/login/              → Public (no Navbar)
+  (dashboard)/               → Protected — layout.js calls auth(), redirects to /login
+    page.js                  → Home
+    notes/                   → Activity Notes
+    todolist/                → Todo List
+    profile/                 → User profile
+    admin/users/             → Admin only
+    expatriate/              → Admin + expatriate_admin
+      [id]/                  → Expat detail
+      permit-types/          → PermitType master data
+      epo/                   → Departed expatriates
 ```
 
-The `(dashboard)/layout.js` calls `auth()` server-side and redirects to `/login` if no session. Admin pages additionally check `session.user.role === "admin"` and redirect to `/` if not.
+### Auth
 
-### Auth Flow
+- `proxy.js` uses `lib/auth.config.js` (edge-safe, no Prisma)
+- Server components and API routes use `lib/auth.js` (full, with Prisma)
+- Session shape: `{ id, name, email, role }` — role in JWT token
+- See [`docs/auth.md`](docs/auth.md) for full details
 
-- `lib/auth.config.js` — edge-compatible config (no Prisma), handles `authorized` callback, JWT enrichment (`token.id`, `token.role`), and session enrichment (`session.user.id`, `session.user.role`)
-- `lib/auth.js` — full NextAuth config with Credentials provider + Prisma lookup. Blocks login if `user.deletedAt` is set (soft-deleted users)
-- `middleware.js` does NOT exist — route protection is done in layout server components
+### Roles
 
-### Database Models
+Three roles: `"admin"`, `"employee"` (default), `"expatriate_admin"`.
 
-```
-User      → id, name, email, password, role (default "employee"), createdAt, deletedAt (soft delete)
-  └─ Todo[]   → id, text, done, createdAt, userId
-  └─ Note[]   → id, title, desc, done, createdAt, userId
-       └─ Progress[] → id, act, tglAct, status (default "Plan"), createdAt, noteId
-            └─ Feedback[] → id, text, tglFeedback, createdAt, progressId
-```
-
-All child relationships use `onDelete: Cascade`. Prisma client imported via `import prisma from "@/lib/prisma"` (singleton in `lib/prisma.js`).
-
-### Role System
-
-Two roles: `"admin"` and `"employee"` (default).
-
-- Admin email: `sep@dnp-g.com` (password: `password123` from seed)
-- Role is stored in JWT token and available as `session.user.role` in both server and client components
-- Admin-only API routes check `session.user.role !== "admin"` and return 403
-- Navbar shows "Kelola User" menu item only when `user.role === "admin"`
+- Expatriate module: requires `admin` or `expatriate_admin`
+- Expatriate guard helper: `requireExpatAdmin()` in `app/api/expatriate/_helpers.js`
 
 ### API Patterns
 
-All API routes in `app/api/`:
-- Start with `const session = await auth()` — return 401 if no session
-- Admin routes use a `requireAdmin()` helper that returns null if not admin — return 403
-- User-scoped queries always filter by `session.user.id` (never return other users' data)
-- Return `NextResponse.json(data)` or `NextResponse.json({ error: "..." }, { status: N })`
+```js
+const session = await auth();
+if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+// user-scoped: always filter by session.user.id
+```
 
-### Component Patterns
+See [`docs/api-routes.md`](docs/api-routes.md) for the complete route map.
 
-- Pages in `(dashboard)/` can be either server components (for data fetching + auth checks) or client components (for interactive UI)
-- Heavy client-side interaction components live in `components/` subdirectories (e.g., `components/admin/`, `components/notes/`)
-- The `Navbar` receives `user` prop from the dashboard layout server component
+### Database
 
-### Soft Delete
+See [`docs/database.md`](docs/database.md) for full schema.
 
-User deletion sets `deletedAt: new Date()` instead of removing the row. This preserves all related Notes/Todos/Progress/Feedback history. Soft-deleted users cannot log in (checked in `lib/auth.js`). Admin UI has a toggle to show/hide inactive users.
+Core models: `User → Note[] → Progress[] → Feedback[]`, `User → Todo[]`  
+Expatriate models: `Expatriate → ExpatPermit[]`, `Expatriate → ExpatFamily[] → FamilyPermit[]`  
+History tables: ExpatHistory, ExpatPermitHistory, ExpatFamilyHistory, FamilyPermitHistory, ExpatPassportHistory, FamilyPassportHistory  
+All child relations use `onDelete: Cascade`. Soft delete on User via `deletedAt`.
+
+### File Uploads
+
+Stored in `public/uploads/expat/` and `public/uploads/expat-permit/`.  
+Served via `GET /api/uploads/[...slug]` (rewrite: `/uploads/:path*`).  
+Upload helpers in `app/api/expatriate/_upload-helpers.js`.
 
 ## Environment
 
-`.env` must contain:
-```
-DATABASE_URL="sqlserver://...;database=lpe_hub;..."
-NEXTAUTH_SECRET="..."
+```env
+DATABASE_URL="sqlserver://172.16.128.221:1433;database=lpe_hub;user=...;password=...;trustServerCertificate=true"
+AUTH_SECRET="..."
 NEXTAUTH_URL="http://localhost:3000"
 ```
+
+Default admin after seed: `admin.ga@dnp-g.com` / `password123`
