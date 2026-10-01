@@ -1,0 +1,84 @@
+# .github/workflows/cd.yml
+# CD Pipeline — Auto deploy ke production server saat push ke main
+name: CD — Deploy to Production
+
+on:
+  # Trigger setelah CI workflow selesai di branch main
+  workflow_run:
+    workflows: ["CI — Lint & Build"]
+    types: [completed]
+    branches: [main]
+
+jobs:
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    # Hanya deploy jika CI BERHASIL
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - name: Checkout (untuk cek perubahan schema)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      # Cek apakah prisma/schema.prisma berubah di commit terakhir
+      - name: Check if Prisma schema changed
+        id: schema_check
+        run: |
+          if git diff HEAD~1 --name-only | grep -q "prisma/schema.prisma"; then
+            echo "schema_changed=true" >> $GITHUB_OUTPUT
+            echo "📋 Prisma schema BERUBAH — akan jalankan db push"
+          else
+            echo "schema_changed=false" >> $GITHUB_OUTPUT
+            echo "✅ Prisma schema tidak berubah — skip db push"
+          fi
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            cd ${{ secrets.DEPLOY_PATH }}
+
+            echo "========================================="
+            echo "🚀 Starting deployment..."
+            echo "========================================="
+
+            echo ""
+            echo "📥 [1/6] Pulling latest code..."
+            git pull origin main
+
+            echo ""
+            echo "📦 [2/6] Installing dependencies..."
+            npm ci --production
+
+            echo ""
+            echo "🔧 [3/6] Generating Prisma Client..."
+            npx prisma generate
+
+            # Hanya jalankan db push jika schema berubah
+            if [ "${{ steps.schema_check.outputs.schema_changed }}" = "true" ]; then
+              echo ""
+              echo "🗄️ [4/6] Pushing schema changes to database..."
+              npx prisma db push --accept-data-loss=false
+            else
+              echo ""
+              echo "⏭️ [4/6] Skipping db push (schema unchanged)"
+            fi
+
+            echo ""
+            echo "🏗️ [5/6] Building Next.js..."
+            npm run build
+
+            echo ""
+            echo "🔄 [6/6] Restarting application..."
+            pm2 restart lpe-hub || pm2 start npm --name "lpe-hub" -- start
+
+            echo ""
+            echo "========================================="
+            echo "✅ Deployment complete!"
+            echo "🌐 App: http://172.17.128.251:3000"
+            echo "========================================="
