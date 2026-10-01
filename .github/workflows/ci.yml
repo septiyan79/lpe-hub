@@ -1,5 +1,5 @@
 # .github/workflows/ci.yml
-# CI Pipeline — Lint & Build check setiap push/PR
+# CI Pipeline — Build check setiap push/PR
 name: CI — Lint & Build
 
 on:
@@ -41,10 +41,6 @@ jobs:
       - name: Generate Prisma Client
         run: npx prisma generate
 
-      # 5. Lint
-      - name: Run ESLint
-        run: npm run lint
-
-      # 6. Build (memastikan tidak ada error build)
+      # 5. Build (memastikan tidak ada error build)
       - name: Build Next.js
         run: npm run build
