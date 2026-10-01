@@ -8,6 +8,14 @@ on:
   pull_request:
     branches: [main]
 
+# Environment variables untuk seluruh job
+# Prisma v6 prisma.config.ts membutuhkan DATABASE_URL saat generate
+# Gunakan dummy URL karena CI tidak perlu konek ke database
+env:
+  DATABASE_URL: "sqlserver://localhost:1433;database=dummy;user=sa;password=DummyPass123;trustServerCertificate=true"
+  AUTH_SECRET: "ci-dummy-secret-for-build-only-minimum-32-chars"
+  NEXTAUTH_URL: "http://localhost:3000"
+
 jobs:
   ci:
     name: Lint & Build
@@ -18,18 +26,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Setup Node.js 20
-      - name: Setup Node.js 20
+      # 2. Setup Node.js 22 (Node 20 sudah deprecated di GitHub Actions)
+      - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
       # 3. Install dependencies
       - name: Install dependencies
         run: npm ci
 
-      # 4. Generate Prisma client (hanya butuh schema, tidak konek DB)
+      # 4. Generate Prisma client (butuh DATABASE_URL dari env di atas)
       - name: Generate Prisma Client
         run: npx prisma generate
 
@@ -40,8 +48,3 @@ jobs:
       # 6. Build (memastikan tidak ada error build)
       - name: Build Next.js
         run: npm run build
-        env:
-          # Dummy URL — CI tidak konek ke SQL Server on-premise
-          DATABASE_URL: "sqlserver://localhost:1433;database=dummy;user=sa;password=DummyPass123;trustServerCertificate=true"
-          AUTH_SECRET: "ci-dummy-secret-for-build-only-minimum-32-chars"
-          NEXTAUTH_URL: "http://localhost:3000"
