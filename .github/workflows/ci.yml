@@ -1,6 +1,6 @@
 # .github/workflows/ci.yml
 # CI Pipeline — Build check setiap push/PR
-name: CI — Lint & Build
+name: CI — Lint, Test & Build
 
 on:
   push:
@@ -18,7 +18,7 @@ env:
 
 jobs:
   ci:
-    name: Lint & Build
+    name: Lint, Test & Build
     runs-on: ubuntu-latest
 
     steps:
@@ -41,6 +41,11 @@ jobs:
       - name: Generate Prisma Client
         run: npx prisma generate
 
-      # 5. Build (memastikan tidak ada error build)
+      # 5. Run unit tests
+      - name: Run Unit Tests
+        run: npm test
+
+      # 6. Build (memastikan tidak ada error build)
       - name: Build Next.js
         run: npm run build
+
