@@ -62,7 +62,14 @@ tests/
         ├── expatriate-photo.test.js    # API /api/expatriate/[id]/photo (POST, DELETE)
         ├── expatriate-passport-scan.test.js # API /api/expatriate/[id]/passport-scan (POST, DELETE)
         ├── expatriate-passport-renew.test.js # API /api/expatriate/[id]/passport/renew (POST)
-        └── expatriate-passport-history.test.js # API /api/expatriate/[id]/passport/history/[historyId] (DELETE)
+        ├── expatriate-passport-history.test.js # API /api/expatriate/[id]/passport/history/[historyId] (DELETE)
+        ├── permit-types.test.js        # API /api/expatriate/permit-types (GET, POST)
+        ├── permit-types-detail.test.js # API /api/expatriate/permit-types/[typeId] (PATCH, DELETE)
+        ├── expatriate-permits.test.js  # API /api/expatriate/[id]/permits (POST)
+        ├── expatriate-permit-detail.test.js # API /api/expatriate/[id]/permits/[permitId] (PATCH, DELETE)
+        ├── expatriate-permit-renew.test.js # API /api/expatriate/[id]/permits/[permitId]/renew (POST)
+        ├── expatriate-permit-scan.test.js  # API /api/expatriate/[id]/permits/[permitId]/scan (POST, DELETE)
+        └── expatriate-epo.test.js          # API /api/expatriate/[id]/epo (GET, POST, PATCH, DELETE - 410)
 ```
 
 ---
@@ -117,23 +124,23 @@ tests/
 | 22 | **Expatriate Passport Renewal** | `unit/api/expatriate-passport-renew.test.js` | 4 | POST: 403 unauth, 404 not found, 400 missing required fields, archive old passport to expatPassportHistory & update to new passport |
 | 23 | **Expatriate Passport History** | `unit/api/expatriate-passport-history.test.js` | 4 | DELETE: 403 unauth, 404 not found / mismatch expatId, delete scan file & delete history record |
 
-**Total: 23 test suites, 157 tests**
+### P2 — Expatriate Permits & Types
+
+| # | Test Suite | File | Tests | Cakupan |
+|---|-----------|------|-------|---------|
+| 24 | **Permit Types List & Create** | `unit/api/permit-types.test.js` | 7 | GET: 403 unauthorized, return sorted permit types. POST: 403 unauthorized, 400 nama wajib diisi, 409 duplicate name, create dengan default flags, create dengan custom flags & order |
+| 25 | **Permit Types Detail** | `unit/api/permit-types-detail.test.js` | 9 | PATCH: 403 unauth, 404 not found, 400 empty name, 409 duplicate name, 200 update metadata. DELETE: 403 unauth, 404 not found, 409 conflict if in use, 200 delete sukses |
+| 26 | **Expatriate Permits** | `unit/api/expatriate-permits.test.js` | 8 | POST: 403 unauth, 404 expat/permitType not found, 400 validation & forExpat guard, 409 EPO duplicate, 201 create permit & snapshot history |
+| 27 | **Expatriate Permit Detail** | `unit/api/expatriate-permit-detail.test.js` | 7 | PATCH: 403 unauth, 404 not found/mismatch expatId, update fields + diff audit. DELETE: 403 unauth, 404 not found, cascade cleanup replaced permits & scans, delete permit |
+| 28 | **Expatriate Permit Renewal** | `unit/api/expatriate-permit-renew.test.js` | 6 | POST: 403 unauth, 404 not found/mismatch expatId, 409 already replaced, 400 validation, 201 create renewed permit & record 2 history entries |
+| 29 | **Expatriate Permit Scan** | `unit/api/expatriate-permit-scan.test.js` | 7 | POST: 403 unauth, 404 not found/mismatch expatId, 400 upload error, 200 upload new PDF & delete old scan. DELETE: 403 unauth, 404 not found, 200 delete physical scan & reset DB |
+| 30 | **Legacy EPO Handlers** | `unit/api/expatriate-epo.test.js` | 4 | GET, POST, PATCH, DELETE return 410 Gone with redirect instruction |
+
+**Total: 30 test suites, 205 tests**
 
 ---
 
-## Test Suites — Belum Diimplementasikan_________________________________________________________________
-
-### P2 — Expatriate Permits & Types
-
-| # | Test Suite | Source File | Estimasi Tests | Cakupan |
-|---|-----------|------------|----------------|---------|
-| 24 | Permit Types List & Create | `app/api/expatriate/permit-types/route.js` | ~5 | GET: list jenis izin terurut. POST: validasi nama wajib, cek duplikasi nama, parsing boolean flags (`forExpat`, `forFamily`, `isEPO`) |
-| 25 | Permit Types Detail | `app/api/expatriate/permit-types/[typeId]/route.js` | ~6 | PATCH: update metadata jenis izin, proteksi duplicate name. DELETE: proteksi 409 Conflict jika jenis izin masih digunakan oleh permit aktif |
-| 26 | Expatriate Permits | `app/api/expatriate/[id]/permits/route.js` | ~6 | POST: tambah permit baru, validasi flag `forExpat`, proteksi duplikasi permit jika `isEPO`, pencatatan riwayat CREATE |
-| 27 | Expatriate Permit Detail | `app/api/expatriate/[id]/permits/[permitId]/route.js` | ~6 | PATCH: update nomor/tanggal/tipe permit + diff audit. DELETE: cascade pembersihan izin replaced & berkas scannya |
-| 28 | Expatriate Permit Renewal | `app/api/expatriate/[id]/permits/[permitId]/renew/route.js` | ~5 | POST: ubah status permit lama menjadi `replaced`, buat permit baru status `active`, catat relasi riwayat |
-| 29 | Expatriate Permit Scan | `app/api/expatriate/[id]/permits/[permitId]/scan/route.js` | ~4 | POST: upload berkas scan izin expat. DELETE: hapus berkas scan izin |
-| 30 | Legacy EPO Handlers | `app/api/expatriate/[id]/epo/route.js` | ~3 | Verifikasi semua method (GET/POST/PATCH/DELETE) mengembalikan 410 Gone (dialihkan ke endpoint permits) |
+## Test Suites — Belum Diimplementasikan
 
 ### P2 — Expatriate Family Module
 
