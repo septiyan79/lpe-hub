@@ -58,7 +58,11 @@ tests/
         ├── notes-feedback.test.js      # API /api/notes/[id]/progress/[progressId]/feedback (POST)
         ├── notes-feedback-detail.test.js # API /api/notes/[id]/progress/[progressId]/feedback/[feedbackId] (DELETE)
         ├── expatriate.test.js          # API /api/expatriate (GET, POST)
-        └── expatriate-detail.test.js   # API /api/expatriate/[id] (GET, PATCH, DELETE)
+        ├── expatriate-detail.test.js   # API /api/expatriate/[id] (GET, PATCH, DELETE)
+        ├── expatriate-photo.test.js    # API /api/expatriate/[id]/photo (POST, DELETE)
+        ├── expatriate-passport-scan.test.js # API /api/expatriate/[id]/passport-scan (POST, DELETE)
+        ├── expatriate-passport-renew.test.js # API /api/expatriate/[id]/passport/renew (POST)
+        └── expatriate-passport-history.test.js # API /api/expatriate/[id]/passport/history/[historyId] (DELETE)
 ```
 
 ---
@@ -108,21 +112,16 @@ tests/
 |---|-----------|------|-------|---------|
 | 18 | **Expatriate List & Create** | `unit/api/expatriate.test.js` | 5 | GET: 403 unauthorized, return expat list & permits & family count. POST: 403 unauthorized, 400 missing required fields, create expat & record CREATE history |
 | 19 | **Expatriate Detail** | `unit/api/expatriate-detail.test.js` | 9 | GET: 403 unauth, 404 not found, return full detail + relations. PATCH: 403 unauth, 404 not found, parse string/date/int & record diff. DELETE: 403 unauth, 404 not found, delete sukses |
+| 20 | **Expatriate Photo** | `unit/api/expatriate-photo.test.js` | 7 | POST: 403 unauth, 404 not found, 400 upload gagal, upload foto baru & hapus foto lama & update DB. DELETE: 403 unauth, 404 not found, hapus file fisik & reset photoUrl null |
+| 21 | **Expatriate Passport Scan** | `unit/api/expatriate-passport-scan.test.js` | 7 | POST: 403 unauth, 404 not found, 400 upload gagal, upload PDF & hapus file lama & update DB. DELETE: 403 unauth, 404 not found, hapus file fisik & reset passportScanUrl null |
+| 22 | **Expatriate Passport Renewal** | `unit/api/expatriate-passport-renew.test.js` | 4 | POST: 403 unauth, 404 not found, 400 missing required fields, archive old passport to expatPassportHistory & update to new passport |
+| 23 | **Expatriate Passport History** | `unit/api/expatriate-passport-history.test.js` | 4 | DELETE: 403 unauth, 404 not found / mismatch expatId, delete scan file & delete history record |
 
-**Total: 19 test suites, 135 tests**
+**Total: 23 test suites, 157 tests**
 
 ---
 
 ## Test Suites — Belum Diimplementasikan_________________________________________________________________
-
-### P2 — Expatriate Core Module
-
-| # | Test Suite | Source File | Estimasi Tests | Cakupan |
-|---|-----------|------------|----------------|---------|
-| 20 | Expatriate Photo | `app/api/expatriate/[id]/photo/route.js` | ~5 | POST: upload & replace foto profil expat, pembersihan file lama. DELETE: hapus file foto & reset database field |
-| 21 | Expatriate Passport Scan | `app/api/expatriate/[id]/passport-scan/route.js` | ~5 | POST: upload scan paspor (PDF/image). DELETE: hapus berkas scan paspor fisik |
-| 22 | Expatriate Passport Renewal | `app/api/expatriate/[id]/passport/renew/route.js` | ~5 | POST: arsipkan paspor lama ke `expatPassportHistory`, perbarui paspor aktif, reset scan URL, catat audit log |
-| 23 | Expatriate Passport History | `app/api/expatriate/[id]/passport/history/[historyId]/route.js` | ~4 | DELETE: hapus arsip paspor lama dan berkas scan terkait |
 
 ### P2 — Expatriate Permits & Types
 
