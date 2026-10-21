@@ -69,7 +69,13 @@ tests/
         ├── expatriate-permit-detail.test.js # API /api/expatriate/[id]/permits/[permitId] (PATCH, DELETE)
         ├── expatriate-permit-renew.test.js # API /api/expatriate/[id]/permits/[permitId]/renew (POST)
         ├── expatriate-permit-scan.test.js  # API /api/expatriate/[id]/permits/[permitId]/scan (POST, DELETE)
-        └── expatriate-epo.test.js          # API /api/expatriate/[id]/epo (GET, POST, PATCH, DELETE - 410)
+        ├── expatriate-epo.test.js          # API /api/expatriate/[id]/epo (GET, POST, PATCH, DELETE - 410)
+        ├── expatriate-family.test.js       # API /api/expatriate/[id]/family (POST)
+        ├── expatriate-family-detail.test.js # API /api/expatriate/[id]/family/[familyId] (PATCH, DELETE)
+        ├── expatriate-family-photo-scan.test.js # API /api/expatriate/[id]/family/[familyId]/photo & passport-scan (POST, DELETE)
+        ├── expatriate-family-passport.test.js # API /api/expatriate/[id]/family/[familyId]/passport/renew & history (POST, DELETE)
+        ├── expatriate-family-permits.test.js # API /api/expatriate/[id]/family/[familyId]/permits/** (POST, PATCH, DELETE)
+        └── expatriate-family-epo.test.js   # API /api/expatriate/[id]/family/[familyId]/epo (GET, POST, PATCH, DELETE - 410)
 ```
 
 ---
@@ -136,22 +142,22 @@ tests/
 | 29 | **Expatriate Permit Scan** | `unit/api/expatriate-permit-scan.test.js` | 7 | POST: 403 unauth, 404 not found/mismatch expatId, 400 upload error, 200 upload new PDF & delete old scan. DELETE: 403 unauth, 404 not found, 200 delete physical scan & reset DB |
 | 30 | **Legacy EPO Handlers** | `unit/api/expatriate-epo.test.js` | 4 | GET, POST, PATCH, DELETE return 410 Gone with redirect instruction |
 
-**Total: 30 test suites, 205 tests**
+### P2 — Expatriate Family Module
+
+| # | Test Suite | File | Tests | Cakupan |
+|---|-----------|------|-------|---------|
+| 31 | **Family List & Create** | `unit/api/expatriate-family.test.js` | 5 | POST: 403 unauth, 404 expat not found, 400 validation required fields, 201 create family member & snapshot history |
+| 32 | **Family Detail** | `unit/api/expatriate-family-detail.test.js` | 7 | PATCH: 403 unauth, 404 not found/mismatch expatId, update fields + diff audit. DELETE: 403 unauth, 404 not found, delete member |
+| 33 | **Family Photo & Passport Scan** | `unit/api/expatriate-family-photo-scan.test.js` | 14 | POST & DELETE upload/hapus fisik foto dan berkas scan paspor keluarga |
+| 34 | **Family Passport Renewal & History** | `unit/api/expatriate-family-passport.test.js` | 8 | POST: renew paspor keluarga, arsip ke familyPassportHistory, reset scanUrl. DELETE: hapus riwayat & scan berkas |
+| 35 | **Family Permits Management** | `unit/api/expatriate-family-permits.test.js` | 12 | POST/PATCH/DELETE permit keluarga, validasi flag `forFamily`, perpanjangan izin (renew), upload/delete scan permit |
+| 36 | **Family Legacy EPO Handlers** | `unit/api/expatriate-family-epo.test.js` | 4 | Verifikasi 410 Gone untuk seluruh HTTP methods (GET, POST, PATCH, DELETE) |
+
+**Total: 36 test suites, 255 tests**
 
 ---
 
 ## Test Suites — Belum Diimplementasikan
-
-### P2 — Expatriate Family Module
-
-| # | Test Suite | Source File | Estimasi Tests | Cakupan |
-|---|-----------|------------|----------------|---------|
-| 31 | Family List & Create | `app/api/expatriate/[id]/family/route.js` | ~5 | POST: validasi seluruh data keluarga (status keluarga, paspor, tgl lahir), simpan relasi `expatId`, catat history |
-| 32 | Family Detail | `app/api/expatriate/[id]/family/[familyId]/route.js` | ~6 | PATCH: update data keluarga, audit diff changes. DELETE: hapus data anggota keluarga |
-| 33 | Family Photo & Passport Scan | `.../family/[familyId]/photo` & `passport-scan` | ~6 | POST & DELETE upload foto dan berkas scan paspor anggota keluarga |
-| 34 | Family Passport Renewal & History | `.../family/[familyId]/passport/renew` & `history/[historyId]` | ~6 | POST: perpanjang paspor keluarga (arsip ke `expatFamilyPassportHistory`). DELETE: hapus riwayat paspor lama |
-| 35 | Family Permits Management | `.../family/[familyId]/permits/**` | ~8 | POST/PATCH/DELETE permit keluarga, validasi flag `forFamily`, perpanjangan izin (renew), upload/delete scan permit |
-| 36 | Family Legacy EPO Handlers | `app/api/expatriate/[id]/family/[familyId]/epo/route.js` | ~3 | Verifikasi respons 410 Gone untuk seluruh HTTP methods |
 
 ### P3 — React Components & Hooks
 
@@ -239,6 +245,32 @@ beforeEach(() => {
 - **Environment default**: `node` (untuk API routes & helpers)
 - **Path alias**: `@/` → root project (sama dengan Next.js tsconfig paths)
 - **Test file pattern**: `tests/**/*.test.{js,jsx}`
+- **Setup file**: `tests/setup.js` (dijalankan sebelum setiap file test)
+
+### Proteksi Database (Defense-in-Depth Safety Guard)
+
+Untuk menjamin bahwa eksekusi unit test **tidak pernah menyentuh database nyata** (baik di lokal dev, CI/CD pipeline, maupun jika dijalankan di server production), diterapkan dua lapis proteksi:
+
+1. **Layer 1: Global Fail-Safe Proxy (`tests/setup.js`)**:
+   - Menangani kasus *human error* jika programmer lupa mendeklarasikan `vi.mock("@/lib/prisma")`.
+   - Proxy otomatis memblokir pemanggilan dan melempar error keras:
+     ```
+     Error: [TEST SAFETY GUARD] Akses ke prisma.<model>.<method> DIBLOKIR!
+     Anda lupa menambahkan vi.mock("@/lib/prisma") pada file test ini.
+     ```
+   - Test otomatis gagal dan koneksi fisik dicegah 100%.
+
+2. **Layer 2: Dummy Environment Variables (`vitest.config.mjs`)**:
+   - Menimpa `DATABASE_URL` di runtime test dengan host dan port tertutup:
+     ```js
+     env: {
+       NODE_ENV: "test",
+       DATABASE_URL: "postgresql://guard:blocked@127.0.0.1:59999/safeguard_blocked_db",
+       NEXTAUTH_SECRET: "test-secret-at-least-32-chars-long-for-testing-purpose",
+       NEXTAUTH_URL: "http://localhost:3000",
+     }
+     ```
+   - Menjamin tidak ada koneksi yang bocor meskipun inisialisasi PrismaClient lolos.
 
 ### Menambahkan jsdom untuk Component Test
 

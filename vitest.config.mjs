@@ -16,6 +16,12 @@ export default defineConfig({
     globals: true,
     setupFiles: ["./tests/setup.js"],
     include: ["tests/**/*.test.{js,jsx}"],
+    env: {
+      NODE_ENV: "test",
+      DATABASE_URL: "postgresql://guard:blocked@127.0.0.1:59999/safeguard_blocked_db",
+      NEXTAUTH_SECRET: "test-secret-at-least-32-chars-long-for-testing-purpose",
+      NEXTAUTH_URL: "http://localhost:3000",
+    },
     coverage: {
       provider: "v8",
       include: [
