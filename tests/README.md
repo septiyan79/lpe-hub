@@ -42,7 +42,7 @@ tests/
     │   └── auth-credentials.test.js    # Credentials authorize() logic
     ├── helpers/
     │   └── diffChanges.test.js         # Utility function diffChanges()
-    └── api/
+    ├── api/
         ├── notes.test.js               # API /api/notes (GET, POST)
         ├── notes-detail.test.js        # API /api/notes/[id] (PATCH, DELETE)
         ├── todos.test.js               # API /api/todos (GET, POST)
@@ -76,6 +76,13 @@ tests/
         ├── expatriate-family-passport.test.js # API /api/expatriate/[id]/family/[familyId]/passport/renew & history (POST, DELETE)
         ├── expatriate-family-permits.test.js # API /api/expatriate/[id]/family/[familyId]/permits/** (POST, PATCH, DELETE)
         └── expatriate-family-epo.test.js   # API /api/expatriate/[id]/family/[familyId]/epo (GET, POST, PATCH, DELETE - 410)
+    └── components/
+        ├── Navbar.test.jsx             # Navbar (render links, roles, signOut)
+        ├── NotesItem.test.jsx          # NotesItem (render, toggle done, inline edit, delete)
+        ├── NotesProgress.test.jsx      # NotesProgress (render, add progress/feedback, cycle status, delete)
+        ├── UserManagement.test.jsx     # UserManagement (render table, filter nonaktif, add/edit/delete user)
+        ├── SessionProviderWrapper.test.jsx # SessionProviderWrapper (render children inside SessionProvider)
+        └── useAutoResizeTextarea.test.jsx # useAutoResizeTextarea hook (auto-resize scrollHeight, isVisible guard)
 ```
 
 ---
@@ -153,24 +160,24 @@ tests/
 | 35 | **Family Permits Management** | `unit/api/expatriate-family-permits.test.js` | 12 | POST/PATCH/DELETE permit keluarga, validasi flag `forFamily`, perpanjangan izin (renew), upload/delete scan permit |
 | 36 | **Family Legacy EPO Handlers** | `unit/api/expatriate-family-epo.test.js` | 4 | Verifikasi 410 Gone untuk seluruh HTTP methods (GET, POST, PATCH, DELETE) |
 
-**Total: 36 test suites, 255 tests**
+### P3 — React Components & Hooks
+
+| # | Test Suite | File | Tests | Cakupan |
+|---|-----------|------|-------|---------|
+| 37 | **Navbar** | `unit/components/Navbar.test.jsx` | 6 | Render link reguler, role admin (Kelola User & Expat), role expat_admin, role employee, penanda rute aktif, signOut |
+| 38 | **NotesItem** | `unit/components/NotesItem.test.jsx` | 7 | Render title/desc/status, toggle done, inline edit title/desc, konfirmasi delete & cancel, togglePrgs |
+| 39 | **NotesProgress** | `unit/components/NotesProgress.test.jsx` | 6 | Render list progress & feedbacks, submit add progress, cycle status (Plan->On Process), delete progress, add feedback, delete feedback |
+| 40 | **UserManagement** | `unit/components/UserManagement.test.jsx` | 7 | Render tabel pengguna & badge Saya, filter user nonaktif, tambah user baru & error handling, edit user, nonaktifkan user & self-delete protection |
+| 41 | **SessionProviderWrapper** | `unit/components/SessionProviderWrapper.test.jsx` | 2 | Render children dengan benar di dalam NextAuth SessionProvider |
+| 42 | **useAutoResizeTextarea** | `unit/components/useAutoResizeTextarea.test.jsx` | 5 | Mengembalikan ref, auto-resize scrollHeight saat value berubah, penanganan saat isVisible toggle, null ref safety |
+
+**Total: 42 test suites, 288 tests (100% SELESAI)**
 
 ---
 
-## Test Suites — Belum Diimplementasikan
+## Status Implementasi
 
-### P3 — React Components & Hooks
-
-> Membutuhkan `jsdom` environment. Dapat dijalankan dengan menambahkan comment `// @vitest-environment jsdom` pada baris pertama file test.
-
-| # | Test Suite | Source File | Estimasi Tests | Cakupan |
-|---|-----------|------------|----------------|---------|
-| 37 | Navbar | `components/Navbar.jsx` | ~7 | Render link navigasi berdasarkan role (`admin`, `expatriate_admin`, `employee`), penanda rute aktif, tombol signOut |
-| 38 | NotesItem | `components/notes/NotesItem.jsx` | ~4 | Render title/deskripsi note, toggle status selesai/belum, pemanggilan handler delete |
-| 39 | NotesProgress | `components/notes/NotesProgress.jsx` | ~5 | Render daftar progress, submit form progress baru, update status item, render feedback list |
-| 40 | UserManagement | `components/admin/UserManagement.jsx` | ~6 | Render tabel pengguna, validasi form modal tambah/edit user, submit data, konfirmasi aksi delete |
-| 41 | SessionProviderWrapper | `components/SessionProviderWrapper.jsx` | ~2 | Render children dengan benar di dalam NextAuth `SessionProvider` |
-| 42 | useAutoResizeTextarea | `hooks/useAutoResizeTextarea.js` | ~4 | Mengembalikan ref, auto-resize tinggi textarea saat value berubah, penanganan saat visibility toggle |
+> **Seluruh 42 test suites dari P0 sampai P3 telah berhasil diimplementasikan dan diverifikasi passing 100%!** Tidak ada test suites yang tertunda.
 
 ---
 
