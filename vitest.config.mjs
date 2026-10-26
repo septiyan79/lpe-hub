@@ -2,6 +2,11 @@ import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import path from "path";
 
+// Allow loading ES Module via require() in Node < 20.19 for jsdom CSS dependencies
+if (!process.env.NODE_OPTIONS?.includes("--experimental-require-module")) {
+  process.env.NODE_OPTIONS = `${process.env.NODE_OPTIONS || ""} --experimental-require-module`.trim();
+}
+
 export default defineConfig({
   plugins: [react()],
   resolve: {
