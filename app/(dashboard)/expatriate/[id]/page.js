@@ -883,7 +883,18 @@ function FamilyDetailPanel({ member, expatId, familyPermitTypes, onRefresh, onDe
                   </button>
                 </div>
               </div>
-              <Field label="Nomor Passport" value={member.passportNo} />
+              <div>
+                <p className="text-xs text-gray-400 mb-0.5">Nomor Passport</p>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-sm text-gray-800 font-medium">{member.passportNo || "-"}</p>
+                  {member.passportScanUrl && (
+                    <a href={member.passportScanUrl} target="_blank" rel="noreferrer"
+                      title="Lihat scan paspor" className="text-blue-500 hover:text-blue-700 shrink-0">
+                      <Paperclip size={13} />
+                    </a>
+                  )}
+                </div>
+              </div>
               <Field label="Passport Issued" value={fmtDate(member.passportIssuedDate)} />
               <Field label="Passport Expiry" value={fmtDate(member.passportExpiryDate)} />
             </>
@@ -1287,6 +1298,8 @@ export default function ExpatDetailPage({ params }) {
   const [tab, setTab] = useState("data");
   const photoInputRef = useRef(null);
   const passportInputRef = useRef(null);
+  const [passportScanUploading, setPassportScanUploading] = useState(false);
+  const [passportScanError, setPassportScanError] = useState("");
 
   const [passportRenewModal, setPassportRenewModal] = useState(false);
   const [passportRenewForm, setPassportRenewForm] = useState({ passportNo: "", passportIssuedDate: "", passportExpiryDate: "" });
@@ -1355,11 +1368,27 @@ export default function ExpatDetailPage({ params }) {
   async function handlePassportScanUpload(e) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const fd = new FormData();
-    fd.append("file", file);
-    const res = await fetch(`/api/expatriate/${id}/passport-scan`, { method: "POST", body: fd });
-    if (res.ok) { const d = await res.json(); setExpat(ex => ({ ...ex, passportScanUrl: d.passportScanUrl })); }
-    e.target.value = "";
+    setPassportScanUploading(true);
+    setPassportScanError("");
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch(`/api/expatriate/${id}/passport-scan`, { method: "POST", body: fd });
+      const d = await res.json();
+      if (!res.ok) {
+        const errMsg = d.error || "Gagal upload scan paspor";
+        setPassportScanError(errMsg);
+        alert(errMsg);
+        return;
+      }
+      setExpat(ex => ({ ...ex, passportScanUrl: d.passportScanUrl }));
+    } catch {
+      setPassportScanError("Gagal upload scan paspor");
+      alert("Gagal upload scan paspor");
+    } finally {
+      setPassportScanUploading(false);
+      e.target.value = "";
+    }
   }
 
   async function handlePassportScanDelete() {
@@ -1395,7 +1424,7 @@ export default function ExpatDetailPage({ params }) {
 
   const expatPermitTypes = permitTypes.filter(t => t.forExpat);
   const familyPermitTypes = permitTypes.filter(t => t.forFamily);
-  const effectivePassportScanUrl = expat?.passportScanUrl || expat?.passportHistories?.[0]?.scanUrl;
+  const effectivePassportScanUrl = expat?.passportScanUrl;
 
   if (loading) return (
     <div className="flex flex-col items-center justify-center py-20 gap-3 text-gray-400">
@@ -1490,15 +1519,26 @@ export default function ExpatDetailPage({ params }) {
                   {/* Passport scan icon */}
                   <input ref={passportInputRef} type="file" accept="application/pdf" className="hidden" onChange={handlePassportScanUpload} />
                   {effectivePassportScanUrl ? (
-                    <a href={effectivePassportScanUrl} target="_blank" rel="noreferrer"
-                      title="Lihat scan paspor"
-                      className="flex items-center border border-gray-300 text-gray-700 text-sm p-1.5 rounded-lg hover:bg-gray-50 transition">
-                      <Paperclip size={14} />
-                    </a>
+                    <div className="flex items-center gap-1">
+                      <a href={effectivePassportScanUrl} target="_blank" rel="noreferrer"
+                        title="Lihat scan paspor"
+                        className="flex items-center border border-gray-300 text-gray-700 text-sm p-1.5 rounded-lg hover:bg-gray-50 transition">
+                        <Paperclip size={14} />
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => passportInputRef.current?.click()}
+                        disabled={passportScanUploading}
+                        title="Ganti scan paspor (PDF)"
+                        className="flex items-center border border-gray-300 text-gray-500 text-sm p-1.5 rounded-lg hover:bg-gray-50 transition disabled:opacity-50">
+                        <Upload size={14} />
+                      </button>
+                    </div>
                   ) : (
                     <button onClick={() => passportInputRef.current?.click()}
-                      title="Upload scan paspor"
-                      className="flex items-center border border-dashed border-gray-300 text-gray-400 text-sm p-1.5 rounded-lg hover:border-gray-400 hover:text-gray-600 transition">
+                      disabled={passportScanUploading}
+                      title="Upload scan paspor (PDF)"
+                      className="flex items-center border border-dashed border-gray-300 text-gray-400 text-sm p-1.5 rounded-lg hover:border-orange-400 hover:text-orange-600 transition disabled:opacity-50">
                       <Paperclip size={14} />
                     </button>
                   )}
@@ -1667,25 +1707,33 @@ export default function ExpatDetailPage({ params }) {
                 ) : (
                   <div>
                     <p className="text-xs text-gray-400 mb-0.5">Nomor Passport</p>
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-sm text-gray-800 font-medium">{expat.passportNo || "-"}</p>
-                      {effectivePassportScanUrl && (
+                      {effectivePassportScanUrl ? (
                         <>
                           <a href={effectivePassportScanUrl} target="_blank" rel="noreferrer"
                             title="Lihat scan paspor" className="text-blue-500 hover:text-blue-700 shrink-0">
                             <Paperclip size={13} />
                           </a>
                           <button
-                            onClick={() => expat.passportScanUrl
-                              ? handlePassportScanDelete()
-                              : handlePassportHistoryDelete(expat.passportHistories[0].id)}
+                            onClick={handlePassportScanDelete}
                             title="Hapus scan paspor"
                             className="text-gray-300 hover:text-red-500 shrink-0 transition">
                             <Trash2 size={11} />
                           </button>
                         </>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => passportInputRef.current?.click()}
+                          disabled={passportScanUploading}
+                          title="Upload scan paspor (PDF)"
+                          className="flex items-center gap-1 text-[11px] text-orange-600 hover:text-orange-700 border border-orange-200 rounded px-1.5 py-0.5 hover:bg-orange-50 transition disabled:opacity-50">
+                          <Upload size={11} /> {passportScanUploading ? "..." : "Upload Scan"}
+                        </button>
                       )}
                     </div>
+                    {passportScanError && <p className="text-[11px] text-red-500 mt-1">{passportScanError}</p>}
                   </div>
                 )}
                 <Field label="Issued Date" value={editing ? form.passportIssuedDate : fmtDate(expat.passportIssuedDate)} onChange={v => setF("passportIssuedDate", v)} type="date" editing={editing} />

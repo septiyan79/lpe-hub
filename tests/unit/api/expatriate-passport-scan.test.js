@@ -36,7 +36,7 @@ function makeParams(id = "exp-1") {
 }
 
 const SESSION = { user: { id: "admin-1", role: "admin" } };
-const EXISTING_EXPAT = { id: "exp-1", passportScanUrl: "/uploads/expat/exp-1/passport.pdf" };
+const EXISTING_EXPAT = { id: "exp-1", passportScanUrl: "/uploads/expat/exp-1/old-passport.pdf" };
 
 describe("POST /api/expatriate/[id]/passport-scan", () => {
   beforeEach(() => vi.clearAllMocks());

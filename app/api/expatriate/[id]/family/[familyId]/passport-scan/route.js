@@ -15,7 +15,7 @@ export async function POST(req, { params }) {
   const { url, error } = await saveUploadedFile(formData, "file", ALLOWED_PDF, ["family", familyId], "passport");
   if (error) return NextResponse.json({ error }, { status: 400 });
 
-  if (member.passportScanUrl) await deleteFileIfExists(member.passportScanUrl);
+  if (member.passportScanUrl && member.passportScanUrl !== url) await deleteFileIfExists(member.passportScanUrl);
 
   const updated = await prisma.expatFamily.update({ where: { id: familyId }, data: { passportScanUrl: url } });
   return NextResponse.json({ passportScanUrl: updated.passportScanUrl });

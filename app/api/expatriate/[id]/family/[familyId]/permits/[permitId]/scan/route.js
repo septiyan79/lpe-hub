@@ -19,8 +19,8 @@ export async function POST(req, { params }) {
   const { url, error } = await saveUploadedFile(formData, "file", ALLOWED_PDF, ["family-permit", permitId], "scan");
   if (error) return NextResponse.json({ error }, { status: 400 });
 
-  // Only delete old scan for this specific permit
-  if (permit.scanUrl) await deleteFileIfExists(permit.scanUrl);
+  // Only delete old scan for this specific permit if path differs
+  if (permit.scanUrl && permit.scanUrl !== url) await deleteFileIfExists(permit.scanUrl);
 
   const updated = await prisma.familyPermit.update({ where: { id: permitId }, data: { scanUrl: url } });
   return NextResponse.json({ scanUrl: updated.scanUrl });

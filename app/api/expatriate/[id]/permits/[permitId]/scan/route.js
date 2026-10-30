@@ -15,8 +15,8 @@ export async function POST(req, { params }) {
   const { url, error } = await saveUploadedFile(formData, "file", ALLOWED_PDF, ["expat-permit", permitId], "scan");
   if (error) return NextResponse.json({ error }, { status: 400 });
 
-  // Only delete old scan for this specific permit (never touch other permits' files)
-  if (permit.scanUrl) await deleteFileIfExists(permit.scanUrl);
+  // Only delete old scan for this specific permit (never touch other permits' files or same file)
+  if (permit.scanUrl && permit.scanUrl !== url) await deleteFileIfExists(permit.scanUrl);
 
   const updated = await prisma.expatPermit.update({ where: { id: permitId }, data: { scanUrl: url } });
   return NextResponse.json({ scanUrl: updated.scanUrl });
