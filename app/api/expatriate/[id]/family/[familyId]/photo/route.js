@@ -15,7 +15,7 @@ export async function POST(req, { params }) {
   const { url, error } = await saveUploadedFile(formData, "file", ALLOWED_IMAGE, ["family", familyId], "photo");
   if (error) return NextResponse.json({ error }, { status: 400 });
 
-  if (member.photoUrl) await deleteFileIfExists(member.photoUrl);
+  if (member.photoUrl && member.photoUrl !== url) await deleteFileIfExists(member.photoUrl);
 
   const updated = await prisma.expatFamily.update({ where: { id: familyId }, data: { photoUrl: url } });
   return NextResponse.json({ photoUrl: updated.photoUrl });

@@ -15,8 +15,8 @@ export async function POST(req, { params }) {
   const { url, error } = await saveUploadedFile(formData, "file", ALLOWED_IMAGE, ["expat", id], "photo");
   if (error) return NextResponse.json({ error }, { status: 400 });
 
-  // Delete old photo file (may have different extension)
-  if (expat.photoUrl) await deleteFileIfExists(expat.photoUrl);
+  // Delete old photo file if path changed (e.g. different extension)
+  if (expat.photoUrl && expat.photoUrl !== url) await deleteFileIfExists(expat.photoUrl);
 
   const updated = await prisma.expatriate.update({ where: { id }, data: { photoUrl: url } });
   return NextResponse.json({ photoUrl: updated.photoUrl });
