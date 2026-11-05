@@ -50,3 +50,8 @@ OLD-FILES/
 
 # User uploaded files
 public/uploads/
+
+# Playwright
+playwright/.auth/
+test-results/
+playwright-report/
