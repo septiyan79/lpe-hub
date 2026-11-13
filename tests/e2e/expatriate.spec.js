@@ -69,6 +69,25 @@ test.describe("Fitur Utama Expatriate LPE Hub", () => {
       }
     });
 
+        // Mock khusus detail expatriate (hanya yang diawali expat-)
+    await page.route("**/api/expatriate/expat-*", async (route) => {
+      const url = route.request().url();
+      const id = url.split("/").pop();
+      const expat = expatriates.find((e) => e.id === id) || expatriates[0];
+
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          ...expat,
+          permits: expat.permits || [],
+          families: [],
+          histories: [],
+          passportHistories: [],
+        }),
+      });
+    });
+
     // 4. Kunjungi halaman Expatriate (otomatis login sebagai Admin via storageState)
     await page.goto("/expatriate");
     await expect(page.getByRole("heading", { name: "Expatriate", exact: true })).toBeVisible();
