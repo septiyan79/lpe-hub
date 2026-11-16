@@ -15,6 +15,9 @@ Features: Activity Notes (Progress & Feedback), Todo List, Admin User Management
 npm run dev                   # Start dev server (Next.js)
 npm run build                 # Production build (runs prisma generate first)
 npm run seed                  # Seed default admin user
+npm test                      # Run unit tests (Vitest)
+npm run test:e2e              # Run end-to-end tests (Playwright)
+npm run test:e2e:ui           # Run E2E tests in interactive UI mode
 npx prisma db push            # Apply schema changes (ALWAYS use this — see note below)
 npx prisma generate           # Regenerate Prisma client after schema changes
 npx prisma studio             # Open Prisma Studio GUI
@@ -30,6 +33,7 @@ npx prisma studio             # Open Prisma Studio GUI
 - **Prisma client output:** `app/generated/prisma` — always import from `@/app/generated/prisma`
 - **Prisma singleton:** `import prisma from "@/lib/prisma"`
 - **UI:** Tailwind CSS v4, Lucide React icons, react-icons
+- **Testing:** Vitest v4 (unit tests in `tests/unit/`), Playwright v1.64 (E2E tests in `tests/e2e/`). See [`tests/README.md`](tests/README.md) for full guide.
 - **Password hashing:** bcryptjs cost factor 12
 
 ## Critical Files — Do NOT Delete
