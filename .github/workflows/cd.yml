@@ -5,7 +5,7 @@ name: CD — Deploy to Production
 on:
   # Trigger setelah CI workflow selesai di branch main
   workflow_run:
-    workflows: ["CI — Lint & Build"]
+    workflows: ["CI — Lint, Test & Build"]
     types: [completed]
     branches: [main]
 

@@ -49,3 +49,21 @@ jobs:
       - name: Build Next.js
         run: npm run build
 
+      # 7. Install browser Chromium untuk Playwright (hanya chromium agar cepat & hemat kuota)
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      # 8. Jalankan seluruh pengujian E2E (21 skenario)
+      - name: Run Playwright E2E Tests
+        run: npm run test:e2e
+        env:
+          CI: true
+          
+      # 9. Upload laporan HTML jika ada pengujian yang gagal (tersimpan 7 hari)
+      - name: Upload Playwright Report
+        uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
